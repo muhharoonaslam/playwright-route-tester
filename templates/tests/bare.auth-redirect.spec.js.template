@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('Authentication Redirect - Bare Test', () => {
+  const protectedRoutes = [
+    { url: '/dashboard', title: 'Dashboard' },
+    { url: '/profile', title: 'Profile' },
+    { url: '/settings', title: 'Settings' }
+  ];
+
+  protectedRoutes.forEach(({ url, title }) => {
+    test(`${title} should redirect to login when not authenticated`, async ({ page }) => {
+      await page.goto(`{{baseURL}}${url}`);
+      
+      // Wait for potential redirect
+      await page.waitForLoadState('networkidle');
+      
+      // Should redirect to login page
+      expect(page.url()).toContain('{{loginURL}}');
+    });
+  });
+
+  test('Login page should be accessible', async ({ page }) => {
+    await page.goto(`{{baseURL}}{{loginURL}}`);
+    await page.waitForLoadState('networkidle');
+    
+    // Should not redirect away from login
+    expect(page.url()).toContain('{{loginURL}}');
+    
+    // Basic smoke test
+    const body = await page.locator('body').textContent();
+    expect(body?.length).toBeGreaterThan(0);
+  });
+});

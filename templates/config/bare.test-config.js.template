@@ -1,0 +1,6 @@
+export const testConfig = {
+  baseURL: '{{baseURL}}',
+  loginURL: '{{loginURL}}',
+  timeout: 10000,
+  retries: 1
+};

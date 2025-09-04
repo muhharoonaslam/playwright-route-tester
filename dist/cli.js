@@ -21,66 +21,82 @@ program
   .command('init')
   .description('Initialize Playwright route testing setup')
   .option('-d, --directory <path>', 'Target directory', './playwright-tests')
+  .option('-b, --bare', 'Create minimal setup without prompts - generates barebone public, protected and API tests')
   .action(async (options) => {
     console.log(chalk.blue.bold('🎭 Playwright Route Tester Setup\n'));
 
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'baseURL',
-        message: 'What is your application base URL?',
-        default: 'http://localhost:3000',
-        validate: (input) => {
-          try {
-            new URL(input);
-            return true;
-          } catch {
-            return 'Please enter a valid URL';
-          }
-        }
-      },
-      {
-        type: 'input',
-        name: 'loginURL',
-        message: 'What is your login page URL (relative to base URL)?',
-        default: '/login'
-      },
-      {
-        type: 'confirm',
-        name: 'includeAPI',
-        message: 'Do you want to include API route testing?',
-        default: true
-      },
-      {
-        type: 'input',
-        name: 'publicRoutes',
-        message: 'Enter public routes (comma-separated):',
-        default: '/, /about, /contact',
-        filter: (input) => input.split(',').map(route => route.trim())
-      },
-      {
-        type: 'input',
-        name: 'protectedRoutes',
-        message: 'Enter protected routes (comma-separated):',
-        default: '/dashboard, /profile, /settings',
-        filter: (input) => input.split(',').map(route => route.trim())
-      }
-    ]);
+    let answers;
 
-    if (answers.includeAPI) {
-      const apiAnswers = await inquirer.prompt([
+    if (options.bare) {
+      // Bare mode - use defaults without prompts
+      answers = {
+        baseURL: 'http://localhost:3000',
+        loginURL: '/login',
+        includeAPI: true,
+        publicRoutes: ['/', '/about', '/contact'],
+        protectedRoutes: ['/dashboard', '/profile', '/settings'],
+        apiRoutes: ['/api/users', '/api/products']
+      };
+      console.log(chalk.yellow('🚀 Creating bare setup with default routes...\n'));
+    } else {
+      answers = await inquirer.prompt([
         {
           type: 'input',
-          name: 'apiRoutes',
-          message: 'Enter API routes to test (comma-separated):',
-          default: '/api/users, /api/products',
+          name: 'baseURL',
+          message: 'What is your application base URL?',
+          default: 'http://localhost:3000',
+          validate: (input) => {
+            try {
+              new URL(input);
+              return true;
+            } catch {
+              return 'Please enter a valid URL';
+            }
+          }
+        },
+        {
+          type: 'input',
+          name: 'loginURL',
+          message: 'What is your login page URL (relative to base URL)?',
+          default: '/login'
+        },
+        {
+          type: 'confirm',
+          name: 'includeAPI',
+          message: 'Do you want to include API route testing?',
+          default: true
+        },
+        {
+          type: 'input',
+          name: 'publicRoutes',
+          message: 'Enter public routes (comma-separated):',
+          default: '/, /about, /contact',
+          filter: (input) => input.split(',').map(route => route.trim())
+        },
+        {
+          type: 'input',
+          name: 'protectedRoutes',
+          message: 'Enter protected routes (comma-separated):',
+          default: '/dashboard, /profile, /settings',
           filter: (input) => input.split(',').map(route => route.trim())
         }
       ]);
-      answers.apiRoutes = apiAnswers.apiRoutes;
+
+      if (answers.includeAPI) {
+        const apiAnswers = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'apiRoutes',
+            message: 'Enter API routes to test (comma-separated):',
+            default: '/api/users, /api/products',
+            filter: (input) => input.split(',').map(route => route.trim())
+          }
+        ]);
+        answers.apiRoutes = apiAnswers.apiRoutes;
+      }
     }
 
-    await generateProject(options.directory, answers);
+    await generateProject(options.directory, answers, options.bare);
   });
 
 program
@@ -112,7 +128,7 @@ program
     await addRoute(options.type, options.url, options.name);
   });
 
-async function generateProject(targetDir, config) {
+async function generateProject(targetDir, config, isBare = false) {
   try {
     console.log(chalk.yellow(`📁 Creating project in ${targetDir}...\n`));
 
@@ -121,17 +137,31 @@ async function generateProject(targetDir, config) {
     const templatesDir = path.join(__dirname, '../templates');
     
     // Copy and process templates
-    await processTemplate(
-      path.join(templatesDir, 'playwright.config.js.template'),
-      path.join(targetDir, 'playwright.config.js'),
-      config
-    );
+    if (isBare) {
+      await processTemplate(
+        path.join(templatesDir, 'bare.playwright.config.js.template'),
+        path.join(targetDir, 'playwright.config.js'),
+        config
+      );
 
-    await processTemplate(
-      path.join(templatesDir, 'config/test-config.js.template'),
-      path.join(targetDir, 'config/test-config.js'),
-      config
-    );
+      await processTemplate(
+        path.join(templatesDir, 'config/bare.test-config.js.template'),
+        path.join(targetDir, 'config/test-config.js'),
+        config
+      );
+    } else {
+      await processTemplate(
+        path.join(templatesDir, 'playwright.config.js.template'),
+        path.join(targetDir, 'playwright.config.js'),
+        config
+      );
+
+      await processTemplate(
+        path.join(templatesDir, 'config/test-config.js.template'),
+        path.join(targetDir, 'config/test-config.js'),
+        config
+      );
+    }
 
     await processTemplate(
       path.join(templatesDir, 'helpers/redirect-helper.js.template'),
@@ -143,17 +173,31 @@ async function generateProject(targetDir, config) {
     await generateRouteFiles(targetDir, config);
 
     // Generate test files
-    await generateTestFiles(targetDir, config);
+    await generateTestFiles(targetDir, config, isBare);
 
     // Generate package.json for the test project
-    await generateTestPackageJson(targetDir);
+    await generateTestPackageJson(targetDir, isBare);
 
     console.log(chalk.green.bold('✅ Project setup complete!\n'));
-    console.log(chalk.cyan('Next steps:'));
-    console.log(chalk.white(`1. cd ${targetDir}`));
-    console.log(chalk.white('2. npm install'));
-    console.log(chalk.white('3. npx playwright install'));
-    console.log(chalk.white('4. npm test'));
+    
+    if (isBare) {
+      console.log(chalk.cyan('Bare setup created with:'));
+      console.log(chalk.white('• Public route tests'));
+      console.log(chalk.white('• Protected route authentication tests'));
+      console.log(chalk.white('• API route tests'));
+      console.log(chalk.yellow('\nSetup:'));
+      console.log(chalk.white(`1. cd ${targetDir} && npm install && npx playwright install`));
+      console.log(chalk.yellow('\nAdd to your main package.json scripts:'));
+      console.log(chalk.green(`"test:routes": "npx playwright test --config=${targetDir}/playwright.config.js"`));
+      console.log(chalk.yellow('\nThen run from project root:'));
+      console.log(chalk.white(`npm run test:routes`));
+    } else {
+      console.log(chalk.cyan('Next steps:'));
+      console.log(chalk.white(`1. cd ${targetDir}`));
+      console.log(chalk.white('2. npm install'));
+      console.log(chalk.white('3. npx playwright install'));
+      console.log(chalk.white('4. npm test'));
+    }
 
   } catch (error) {
     console.error(chalk.red('❌ Error generating project:'), error.message);
@@ -220,32 +264,55 @@ async function generateRouteFiles(targetDir, config) {
   }
 }
 
-async function generateTestFiles(targetDir, config) {
+async function generateTestFiles(targetDir, config, isBare = false) {
   const testsDir = path.join(targetDir, 'tests');
   await fs.ensureDir(testsDir);
   
   const templatesDir = path.join(__dirname, '../templates');
 
-  // Copy test templates
-  await fs.copy(
-    path.join(templatesDir, 'tests/public-routes.spec.js.template'),
-    path.join(testsDir, 'public-routes.spec.js')
-  );
-
-  await fs.copy(
-    path.join(templatesDir, 'tests/auth-redirect.spec.js.template'),
-    path.join(testsDir, 'auth-redirect.spec.js')
-  );
-
-  if (config.apiRoutes) {
-    await fs.copy(
-      path.join(templatesDir, 'tests/api-routes.spec.js.template'),
-      path.join(testsDir, 'api-routes.spec.js')
+  if (isBare) {
+    // Use bare templates with direct processing
+    await processTemplate(
+      path.join(templatesDir, 'tests/bare.public-routes.spec.js.template'),
+      path.join(testsDir, 'public-routes.spec.js'),
+      config
     );
+
+    await processTemplate(
+      path.join(templatesDir, 'tests/bare.auth-redirect.spec.js.template'),
+      path.join(testsDir, 'auth-redirect.spec.js'),
+      config
+    );
+
+    if (config.apiRoutes) {
+      await processTemplate(
+        path.join(templatesDir, 'tests/bare.api-routes.spec.js.template'),
+        path.join(testsDir, 'api-routes.spec.js'),
+        config
+      );
+    }
+  } else {
+    // Copy test templates (original behavior)
+    await fs.copy(
+      path.join(templatesDir, 'tests/public-routes.spec.js.template'),
+      path.join(testsDir, 'public-routes.spec.js')
+    );
+
+    await fs.copy(
+      path.join(templatesDir, 'tests/auth-redirect.spec.js.template'),
+      path.join(testsDir, 'auth-redirect.spec.js')
+    );
+
+    if (config.apiRoutes) {
+      await fs.copy(
+        path.join(templatesDir, 'tests/api-routes.spec.js.template'),
+        path.join(testsDir, 'api-routes.spec.js')
+      );
+    }
   }
 }
 
-async function generateTestPackageJson(targetDir) {
+async function generateTestPackageJson(targetDir, isBare = false) {
   const packageJson = {
     name: "playwright-route-tests",
     version: "1.0.0",

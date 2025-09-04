@@ -1,0 +1,25 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('Public Routes - Bare Test', () => {
+  const publicRoutes = [
+    { url: '/', title: 'Home Page' },
+    { url: '/about', title: 'About Page' },
+    { url: '/contact', title: 'Contact Page' }
+  ];
+
+  publicRoutes.forEach(({ url, title }) => {
+    test(`${title} should be accessible without authentication`, async ({ page }) => {
+      await page.goto(`{{baseURL}}${url}`);
+      
+      // Wait for page to load
+      await page.waitForLoadState('networkidle');
+      
+      // Check if page loaded successfully (not redirected to login)
+      expect(page.url()).not.toContain('/login');
+      
+      // Basic smoke test - ensure page has content
+      const body = await page.locator('body').textContent();
+      expect(body?.length).toBeGreaterThan(0);
+    });
+  });
+});

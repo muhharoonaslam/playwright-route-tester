@@ -1,6 +1,6 @@
 {
   "name": "playwright-route-tester",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A CLI tool to generate Playwright tests for route testing with authentication redirect validation",
   "type": "module",
   "main": "dist/index.js",
@@ -22,16 +22,16 @@
     "cli-tool",
     "automation"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Muhammad Haroon Aslam <muhharoonaslam@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/playwright-route-tester.git"
+    "url": "https://github.com/muhharoonaslam/playwright-route-tester.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/playwright-route-tester/issues"
+    "url": "https://github.com/muhharoonaslam/playwright-route-tester/issues"
   },
-  "homepage": "https://github.com/yourusername/playwright-route-tester#readme",
+  "homepage": "https://github.com/muhharoonaslam/playwright-route-tester#readme",
   "dependencies": {
     "commander": "^11.0.0",
     "fs-extra": "^11.1.1",

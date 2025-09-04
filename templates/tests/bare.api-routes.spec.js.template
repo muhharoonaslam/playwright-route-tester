@@ -1,0 +1,24 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('API Routes - Bare Test', () => {
+  const apiRoutes = [
+    { url: '/api/users', title: 'Users API' },
+    { url: '/api/products', title: 'Products API' }
+  ];
+
+  apiRoutes.forEach(({ url, title }) => {
+    test(`${title} should return 401 when not authenticated`, async ({ request }) => {
+      const response = await request.get(`{{baseURL}}${url}`);
+      
+      // Should return 401 Unauthorized for protected API routes
+      expect(response.status()).toBe(401);
+    });
+  });
+
+  test('API should handle invalid endpoints', async ({ request }) => {
+    const response = await request.get('{{baseURL}}/api/nonexistent');
+    
+    // Should return 404 for non-existent endpoints
+    expect([404, 401]).toContain(response.status());
+  });
+});

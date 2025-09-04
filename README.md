@@ -8,6 +8,7 @@ A powerful CLI tool that generates comprehensive Playwright tests for web applic
 - **🌐 Public Route Validation**: Ensure public pages load correctly
 - **🔌 API Security Testing**: Verify API endpoints return proper authentication errors
 - **⚡ Easy Setup**: Interactive CLI guides you through configuration
+- **🚀 Bare Mode**: Quick setup with minimal configuration for instant testing
 - **📊 Comprehensive Reports**: Detailed test results with security insights
 - **🎯 Customizable**: Flexible configuration for different application structures
 
@@ -33,7 +34,34 @@ npm install playwright-route-tester --save-dev
 
 ## 🎬 Quick Start
 
-### 1. Initialize Your Test Suite
+### Option 1: Bare Mode (Recommended for Quick Testing)
+
+Perfect for getting started quickly with minimal configuration:
+
+```bash
+# Create bare setup with default routes
+playwright-route-tester init --bare
+
+# Setup dependencies
+cd playwright-tests && npm install && npx playwright install
+
+# Add to your main package.json scripts:
+# "test:routes": "npx playwright test --config=playwright-tests/playwright.config.js"
+
+# Run from your project root
+npm run test:routes
+```
+
+**What you get with `--bare`:**
+- ✅ Public routes: `/`, `/about`, `/contact`  
+- ✅ Protected routes: `/dashboard`, `/profile`, `/settings`
+- ✅ API routes: `/api/users`, `/api/products`
+- ✅ Tests runnable from project root
+- ✅ No interactive prompts needed
+
+### Option 2: Interactive Setup (Full Customization)
+
+For detailed configuration of your specific routes:
 
 ```bash
 # Interactive setup
@@ -43,8 +71,6 @@ playwright-route-tester init
 playwright-route-tester init --directory ./my-tests
 ```
 
-### 2. Configure Your Routes
-
 The CLI will prompt you for:
 
 - **Base URL**: Your application's base URL (e.g., `http://localhost:3000`)
@@ -53,7 +79,7 @@ The CLI will prompt you for:
 - **Protected Routes**: Routes that should redirect to login
 - **API Routes**: API endpoints to test for authentication
 
-### 3. Run Your Tests
+Then run your tests:
 
 ```bash
 cd ./playwright-tests  # or your chosen directory
@@ -108,6 +134,26 @@ playwright-route-tester init [options]
 
 Options:
   -d, --directory <path>  Target directory (default: ./playwright-tests)
+  -b, --bare             Create minimal setup without prompts - generates barebone 
+                         public, protected and API tests with default routes
+```
+
+#### Bare Mode Examples
+
+```bash
+# Quick setup with defaults
+playwright-route-tester init --bare
+
+# Bare setup in custom directory  
+playwright-route-tester init --bare --directory ./e2e-tests
+
+# Then add to your package.json:
+{
+  "scripts": {
+    "test:routes": "npx playwright test --config=./e2e-tests/playwright.config.js",
+    "test:routes:headed": "npx playwright test --config=./e2e-tests/playwright.config.js --headed"
+  }
+}
 ```
 
 ### `add-route`
@@ -277,6 +323,20 @@ npm run report              # Show HTML report
 
 The generated tests work great in CI/CD pipelines:
 
+#### For Bare Mode Setup:
+```yaml
+# GitHub Actions example
+- name: Install test dependencies
+  run: |
+    cd playwright-tests
+    npm ci
+    npx playwright install
+
+- name: Run route tests from project root
+  run: npm run test:routes
+```
+
+#### For Interactive Mode Setup:
 ```yaml
 # GitHub Actions example
 - name: Install dependencies
@@ -290,6 +350,28 @@ The generated tests work great in CI/CD pipelines:
     cd playwright-tests
     npm test
 ```
+
+## 🆚 Bare Mode vs Interactive Mode
+
+| Feature | Bare Mode (`--bare`) | Interactive Mode |
+|---------|---------------------|------------------|
+| **Setup Time** | ⚡ Instant (no prompts) | 🐌 Interactive prompts |
+| **Configuration** | 🎯 Default routes only | 🎛️ Fully customizable |
+| **Test Execution** | 🏠 From project root | 📁 From test directory |
+| **Routes Included** | ✅ Common defaults | ✅ Your specific routes |
+| **Best For** | 🚀 Quick testing, CI/CD | 🔧 Production apps |
+
+**Use Bare Mode When:**
+- You want to quickly test standard routes (`/`, `/dashboard`, `/api/*`)
+- You're setting up CI/CD pipelines  
+- You want tests runnable from your main project
+- You prefer minimal configuration
+
+**Use Interactive Mode When:**
+- You have specific custom routes to test
+- You need detailed configuration options
+- You want a standalone test project
+- Your routes don't match the defaults
 
 ## 🛡️ Security Features
 
