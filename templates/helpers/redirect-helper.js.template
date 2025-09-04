@@ -1,0 +1,116 @@
+import { testConfig } from '../config/test-config.js';
+
+export async function checkRedirectToLogin(page, targetURL, expectedLoginURL) {
+  try {
+    console.log(`🔍 Checking redirect for: ${targetURL}`);
+    
+    const response = await page.goto(targetURL, { 
+      waitUntil: 'domcontentloaded',
+      timeout: testConfig.timeout 
+    });
+    
+    const currentURL = page.url();
+    const statusCode = response ? response.status() : null;
+    
+    console.log(`📍 Current URL: ${currentURL}`);
+    console.log(`📊 Status Code: ${statusCode}`);
+    
+    // Check if URL contains login path or redirected to login
+    const isRedirectedToLogin = currentURL.includes(expectedLoginURL) || 
+                               currentURL.includes('/login') ||
+                               currentURL.includes('/auth') ||
+                               currentURL.includes('/signin');
+    
+    return {
+      isRedirectedToLogin,
+      currentURL,
+      statusCode,
+      originalURL: targetURL
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error checking redirect: ${error.message}`);
+    return {
+      isRedirectedToLogin: false,
+      currentURL: null,
+      statusCode: null,
+      error: error.message,
+      originalURL: targetURL
+    };
+  }
+}
+
+export async function waitForLoginForm(page, timeout = 5000) {
+  try {
+    const loginSelector = testConfig.loginSelectors.join(', ');
+    await page.waitForSelector(loginSelector, { timeout });
+    return true;
+  } catch (error) {
+    console.warn(`⚠️ Login form not found within ${timeout}ms`);
+    return false;
+  }
+}
+
+export async function simulateLogin(page, credentials = {}) {
+  const { username = 'test@example.com', password = 'password123' } = credentials;
+  
+  try {
+    // Try different common login form patterns
+    const usernameSelectors = [
+      'input[name="username"]',
+      'input[name="email"]',
+      'input[type="email"]',
+      '#username',
+      '#email'
+    ];
+    
+    const passwordSelectors = [
+      'input[name="password"]',
+      'input[type="password"]',
+      '#password'
+    ];
+    
+    // Fill username/email
+    for (const selector of usernameSelectors) {
+      try {
+        await page.fill(selector, username);
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    // Fill password
+    for (const selector of passwordSelectors) {
+      try {
+        await page.fill(selector, password);
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    // Submit form
+    const submitSelectors = [
+      'button[type="submit"]',
+      'input[type="submit"]',
+      'button:has-text("Login")',
+      'button:has-text("Sign In")',
+      '.login-button'
+    ];
+    
+    for (const selector of submitSelectors) {
+      try {
+        await page.click(selector);
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`❌ Login simulation failed: ${error.message}`);
+    return false;
+  }
+}

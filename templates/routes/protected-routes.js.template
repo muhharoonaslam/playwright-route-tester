@@ -1,0 +1,27 @@
+// Protected routes that should redirect to login when not authenticated
+export const protectedRoutes = [
+  {
+    url: '/dashboard',
+    title: 'Dashboard',
+    requiresAuth: true,
+    expectedRedirect: '/login'
+  },
+  {
+    url: '/profile',
+    title: 'User Profile',
+    requiresAuth: true,
+    expectedRedirect: '/login'
+  },
+  {
+    url: '/settings',
+    title: 'Settings',
+    requiresAuth: true,
+    expectedRedirect: '/login'
+  },
+  {
+    url: '/admin',
+    title: 'Admin Panel',
+    requiresAuth: true,
+    expectedRedirect: '/login'
+  }
+];

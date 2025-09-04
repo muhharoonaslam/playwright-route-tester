@@ -1,0 +1,133 @@
+// tests/api-routes.spec.js
+import { test, expect } from '@playwright/test';
+import { apiRoutes } from '../routes/api-routes.js';
+import { testConfig } from '../config/test-config.js';
+
+test.describe('API Routes Authentication Tests', () => {
+  test.beforeEach(async ({ context }) => {
+    // Clear authentication to test unauthorized access
+    await context.clearCookies();
+  });
+  
+  for (const route of apiRoutes) {
+    test(`${route.title} (${route.url}) should return ${route.expectedStatus} when not authenticated`, async ({ request }) => {
+      console.log(`🔌 Testing API: ${route.title} at ${route.url}`);
+      
+      const response = await request[route.method.toLowerCase()](`${testConfig.baseURL}${route.url}`, {
+        headers: testConfig.defaultHeaders
+      });
+      
+      console.log(`📊 Response status: ${response.status()}`);
+      
+      expect(response.status()).toBe(route.expectedStatus);
+      
+      // For 401 responses, check if response contains authentication error
+      if (route.expectedStatus === 401) {
+        const responseBody = await response.text();
+        console.log(`📄 Response body: ${responseBody.substring(0, 200)}...`);
+        
+        // Common authentication error patterns
+        const authErrorPatterns = [
+          /unauthorized/i,
+          /authentication/i,
+          /token/i,
+          /login/i,
+          /access denied/i
+        ];
+        
+        const hasAuthError = authErrorPatterns.some(pattern => 
+          pattern.test(responseBody) || pattern.test(response.statusText())
+        );
+        
+        if (hasAuthError) {
+          console.log(`✅ ${route.title}: Properly returns authentication error`);
+        } else {
+          console.warn(`⚠️ ${route.title}: Returns 401 but no clear auth error message`);
+        }
+      }
+      
+      console.log(`✅ ${route.title}: Test passed (Status: ${response.status()})`);
+    });
+  }
+  
+  test('All API routes should require authentication', async ({ request }) => {
+    console.log(`🔌 Testing authentication requirement for all ${apiRoutes.length} API routes`);
+    
+    let secureAPIs = 0;
+    let vulnerableAPIs = [];
+    
+    for (const route of apiRoutes) {
+      try {
+        const response = await request[route.method.toLowerCase()](`${testConfig.baseURL}${route.url}`, {
+          headers: testConfig.defaultHeaders
+        });
+        
+        const status = response.status();
+        
+        if (status === route.expectedStatus) {
+          secureAPIs++;
+          console.log(`✅ ${route.url}: Properly protected (${status})`);
+        } else {
+          vulnerableAPIs.push({
+            url: route.url,
+            method: route.method,
+            expectedStatus: route.expectedStatus,
+            actualStatus: status
+          });
+          console.error(`❌ ${route.url}: Expected ${route.expectedStatus}, got ${status}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error testing ${route.url}: ${error.message}`);
+        vulnerableAPIs.push({
+          url: route.url,
+          method: route.method,
+          error: error.message
+        });
+      }
+    }
+    
+    console.log(`📊 API Security Summary: ${secureAPIs}/${apiRoutes.length} APIs properly protected`);
+    
+    if (vulnerableAPIs.length > 0) {
+      console.error(`🚨 API SECURITY ALERT: ${vulnerableAPIs.length} potentially vulnerable APIs:`);
+      vulnerableAPIs.forEach(api => {
+        console.error(`  - ${api.method} ${api.url} (Expected: ${api.expectedStatus}, Got: ${api.actualStatus || api.error})`);
+      });
+    }
+    
+    expect(vulnerableAPIs).toHaveLength(0);
+  });
+  
+  test('API error responses should have proper format', async ({ request }) => {
+    console.log(`🔍 Testing API error response formats`);
+    
+    // Test first API route for error format
+    const testRoute = apiRoutes[0];
+    if (!testRoute) return;
+    
+    const response = await request[testRoute.method.toLowerCase()](`${testConfig.baseURL}${testRoute.url}`, {
+      headers: testConfig.defaultHeaders
+    });
+    
+    expect(response.status()).toBe(testRoute.expectedStatus);
+    
+    // Check if response is JSON formatted
+    const contentType = response.headers()['content-type'];
+    if (contentType && contentType.includes('application/json')) {
+      const body = await response.json();
+      console.log(`📄 JSON Error Response:`, body);
+      
+      // Common API error response structures
+      const hasErrorStructure = 
+        body.error || 
+        body.message || 
+        body.status || 
+        body.statusCode;
+        
+      expect(hasErrorStructure).toBeTruthy();
+      console.log(`✅ API error response has proper structure`);
+    } else {
+      console.log(`ℹ️ API returns non-JSON error response`);
+    }
+  });
+});

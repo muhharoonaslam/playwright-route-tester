@@ -1,0 +1,22 @@
+export const testConfig = {
+  baseURL: '{{baseURL}}',
+  loginURL: '{{loginURL}}',
+  timeout: 10000,
+  
+  // Common selectors for login detection
+  loginSelectors: [
+    'input[name="username"]',
+    'input[name="email"]', 
+    'input[type="email"]',
+    '#login-form',
+    '.login-container',
+    '.login-page',
+    '[data-testid="login-form"]'
+  ],
+  
+  // Headers for API testing
+  defaultHeaders: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+};

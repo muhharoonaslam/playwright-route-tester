@@ -1,0 +1,31 @@
+// Public routes that should be accessible without authentication
+export const publicRoutes = [
+  {
+    url: '/',
+    title: 'Home Page',
+    expectedStatus: 200,
+    timeout: 10000,
+    keyElement: null // Optional: specific element to verify page loaded
+  },
+  {
+    url: '/about',
+    title: 'About Page',
+    expectedStatus: 200,
+    timeout: 10000,
+    keyElement: null
+  },
+  {
+    url: '/contact',
+    title: 'Contact Page',
+    expectedStatus: 200,
+    timeout: 10000,
+    keyElement: null
+  },
+  {
+    url: '/login',
+    title: 'Login Page',
+    expectedStatus: 200,
+    timeout: 10000,
+    keyElement: 'input[name="username"], input[name="email"]'
+  }
+];

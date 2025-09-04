@@ -1,0 +1,35 @@
+// API routes that should return 401 when not authenticated
+export const apiRoutes = [
+  {
+    url: '/api/users',
+    title: 'Users API',
+    method: 'GET',
+    requiresAuth: true,
+    expectedStatus: 401, // Unauthorized when not authenticated
+    authenticatedStatus: 200 // Expected status when authenticated
+  },
+  {
+    url: '/api/products',
+    title: 'Products API',
+    method: 'GET',
+    requiresAuth: true,
+    expectedStatus: 401,
+    authenticatedStatus: 200
+  },
+  {
+    url: '/api/profile',
+    title: 'Profile API',
+    method: 'GET',
+    requiresAuth: true,
+    expectedStatus: 401,
+    authenticatedStatus: 200
+  },
+  {
+    url: '/api/orders',
+    title: 'Orders API',
+    method: 'GET',
+    requiresAuth: true,
+    expectedStatus: 401,
+    authenticatedStatus: 200
+  }
+];

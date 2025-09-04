@@ -1,0 +1,118 @@
+// tests/auth-redirect.spec.js
+import { test, expect } from '@playwright/test';
+import { protectedRoutes } from '../routes/protected-routes.js';
+import { testConfig } from '../config/test-config.js';
+import { checkRedirectToLogin, waitForLoginForm } from '../helpers/redirect-helper.js';
+
+test.describe('Authentication Redirect Tests', () => {
+  test.beforeEach(async ({ context }) => {
+    // Clear all cookies and localStorage to ensure unauthenticated state
+    await context.clearCookies();
+    await context.clearPermissions();
+  });
+  
+  for (const route of protectedRoutes) {
+    test(`${route.title} (${route.url}) should redirect to login when not authenticated`, async ({ page }) => {
+      console.log(`🔐 Testing auth redirect: ${route.title} at ${route.url}`);
+      
+      const redirectCheck = await checkRedirectToLogin(
+        page, 
+        `${testConfig.baseURL}${route.url}`, 
+        testConfig.loginURL
+      );
+      
+      if (redirectCheck.isRedirectedToLogin) {
+        // Verify we can find login form elements
+        const hasLoginForm = await waitForLoginForm(page, 5000);
+        
+        if (hasLoginForm) {
+          console.log(`✅ ${route.title}: Correctly redirected to login page`);
+        } else {
+          console.warn(`⚠️ ${route.title}: Redirected but login form not detected`);
+          // Still pass the test if redirected to login URL
+          expect(redirectCheck.currentURL).toMatch(/\/login|\/auth|\/signin/);
+        }
+      } else {
+        // Take screenshot for debugging
+        await page.screenshot({ 
+          path: `test-results/auth-failure-${route.title.replace(/\s+/g, '-')}.png`,
+          fullPage: true
+        });
+        
+        throw new Error(
+          `🚨 SECURITY CONCERN: ${route.url} did not redirect to login.\n` +
+          `Current URL: ${redirectCheck.currentURL}\n` +
+          `Status: ${redirectCheck.statusCode}\n` +
+          `This route may be publicly accessible when it should be protected!`
+        );
+      }
+    });
+  }
+
+  test('All protected routes should require authentication', async ({ page }) => {
+    console.log(`🔐 Testing authentication requirement for all ${protectedRoutes.length} protected routes`);
+    
+    let secureRoutes = 0;
+    let vulnerableRoutes = [];
+    
+    for (const route of protectedRoutes) {
+      try {
+        console.log(`🔍 Checking: ${route.url}`);
+        
+        const redirectCheck = await checkRedirectToLogin(
+          page, 
+          `${testConfig.baseURL}${route.url}`, 
+          testConfig.loginURL
+        );
+        
+        if (redirectCheck.isRedirectedToLogin) {
+          secureRoutes++;
+          console.log(`✅ ${route.url}: Properly protected`);
+        } else {
+          vulnerableRoutes.push({
+            url: route.url,
+            currentURL: redirectCheck.currentURL,
+            status: redirectCheck.statusCode
+          });
+          console.error(`❌ ${route.url}: NOT PROTECTED - Status: ${redirectCheck.statusCode}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error testing ${route.url}: ${error.message}`);
+        vulnerableRoutes.push({
+          url: route.url,
+          error: error.message
+        });
+      }
+    }
+    
+    console.log(`📊 Security Summary: ${secureRoutes}/${protectedRoutes.length} routes properly protected`);
+    
+    if (vulnerableRoutes.length > 0) {
+      console.error(`🚨 SECURITY ALERT: ${vulnerableRoutes.length} potentially vulnerable routes found:`);
+      vulnerableRoutes.forEach(route => {
+        console.error(`  - ${route.url} (${route.status || route.error})`);
+      });
+      
+      // Generate detailed security report
+      await page.evaluate((routes) => {
+        console.log('SECURITY REPORT:', JSON.stringify(routes, null, 2));
+      }, vulnerableRoutes);
+    }
+    
+    // Fail the test if any routes are not properly protected
+    expect(vulnerableRoutes).toHaveLength(0);
+  });
+  
+  test('Login page should be accessible', async ({ page }) => {
+    console.log(`🔍 Verifying login page accessibility`);
+    
+    const response = await page.goto(`${testConfig.baseURL}${testConfig.loginURL}`);
+    
+    expect(response.status()).toBe(200);
+    
+    const hasLoginForm = await waitForLoginForm(page, 5000);
+    expect(hasLoginForm).toBe(true);
+    
+    console.log(`✅ Login page is accessible and contains login form`);
+  });
+});

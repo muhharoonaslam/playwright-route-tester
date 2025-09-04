@@ -1,0 +1,71 @@
+// tests/public-routes.spec.js
+import { test, expect } from '@playwright/test';
+import { publicRoutes } from '../routes/public-routes.js';
+import { testConfig } from '../config/test-config.js';
+
+test.describe('Public Routes Test', () => {
+  for (const route of publicRoutes) {
+    test(`${route.title} (${route.url}) should load successfully`, async ({ page }) => {
+      console.log(`🧪 Testing: ${route.title} at ${route.url}`);
+      
+      const response = await page.goto(`${testConfig.baseURL}${route.url}`, { 
+        waitUntil: 'domcontentloaded',
+        timeout: route.timeout 
+      });
+
+      expect(response).not.toBeNull();
+      expect(response.status()).toBe(route.expectedStatus);
+
+      // Verify page title or URL
+      const currentURL = page.url();
+      expect(currentURL).toContain(route.url);
+
+      // Check for key element if specified
+      if (route.keyElement) {
+        const locator = page.locator(route.keyElement);
+        await expect(locator).toBeVisible({ timeout: route.timeout });
+        console.log(`✅ Key element found: ${route.keyElement}`);
+      }
+
+      // Take screenshot on failure for debugging
+      if (response.status() !== route.expectedStatus) {
+        await page.screenshot({ path: `test-results/failed-${route.title.replace(/\s+/g, '-')}.png` });
+      }
+
+      console.log(`✅ ${route.title}: Test passed (Status: ${response.status()})`);
+    });
+  }
+  
+  test('All public routes should be accessible', async ({ page }) => {
+    console.log(`🧪 Testing accessibility of all ${publicRoutes.length} public routes`);
+    
+    let passedRoutes = 0;
+    let failedRoutes = [];
+    
+    for (const route of publicRoutes) {
+      try {
+        const response = await page.goto(`${testConfig.baseURL}${route.url}`, { 
+          waitUntil: 'domcontentloaded',
+          timeout: route.timeout 
+        });
+        
+        if (response && response.status() === route.expectedStatus) {
+          passedRoutes++;
+          console.log(`✅ ${route.url}: OK`);
+        } else {
+          failedRoutes.push(`${route.url} (Status: ${response ? response.status() : 'No response'})`);
+        }
+      } catch (error) {
+        failedRoutes.push(`${route.url} (Error: ${error.message})`);
+      }
+    }
+    
+    console.log(`📊 Summary: ${passedRoutes}/${publicRoutes.length} routes passed`);
+    
+    if (failedRoutes.length > 0) {
+      console.error(`❌ Failed routes: ${failedRoutes.join(', ')}`);
+    }
+    
+    expect(failedRoutes).toHaveLength(0);
+  });
+});
