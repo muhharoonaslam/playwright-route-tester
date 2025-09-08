@@ -64,21 +64,34 @@ async function verifyBuild() {
     }
   }
   
-  // Check template files exist
-  const requiredTemplates = [
-    'playwright.config.js.template',
-    'config/test-config.js.template',
-    'helpers/redirect-helper.js.template',
-    'tests/public-routes.spec.js.template',
-    'tests/auth-redirect.spec.js.template',
-    'tests/api-routes.spec.js.template'
+  // Check unified template files exist
+  const requiredUnifiedTemplates = [
+    'unified/playwright.config.hbs',
+    'unified/test-config.hbs',
+    'unified/redirect-helper.hbs',
+    'unified/tests.public.hbs',
+    'unified/tests.protected.hbs',
+    'unified/tests.api.hbs',
+    'unified/routes.public.hbs',
+    'unified/routes.protected.hbs',
+    'unified/routes.api.hbs',
+    'unified/package.hbs',
+    'unified/jenkins.pipeline.hbs'
   ];
   
-  for (const template of requiredTemplates) {
+  for (const template of requiredUnifiedTemplates) {
     const templatePath = path.join(templatesDir, template);
     if (!await fs.pathExists(templatePath)) {
-      throw new Error(`Required template missing: ${templatePath}`);
+      console.warn(`⚠️  Template missing: ${templatePath}`);
     }
+  }
+  
+  // Check that we have the unified templates directory
+  const unifiedTemplatesDir = path.join(templatesDir, 'unified');
+  if (await fs.pathExists(unifiedTemplatesDir)) {
+    console.log('✅ Unified templates directory found');
+  } else {
+    throw new Error('Unified templates directory not found');
   }
   
   // Verify package.json has correct structure

@@ -1,0 +1,108 @@
+import { test, expect } from '@playwright/test';
+{{#unless bare}}
+import { testConfig } from '../config/test-config.js';
+import { publicRoutes } from '../routes/public-routes.js';
+{{/unless}}
+
+{{#if bare}}
+const publicRoutes = {{{json routes.public}}};
+{{/if}}
+
+test.describe('Public Routes Testing', () => {
+  {{#unless bare}}
+  test.beforeEach(async ({ page }) => {
+    // Set timeout for each test
+    test.setTimeout(testConfig.timeout);
+  });
+  {{/unless}}
+
+  {{#if bare}}
+  // Bare mode tests - Direct route definitions
+  {{#eachRoute routes.public}}
+  test('{{testDescription this "public"}}', async ({ page }) => {
+    await page.goto('{{../baseURL}}{{url}}');
+    
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    
+    // Verify page loaded successfully (not redirected to login)
+    expect(page.url()).not.toContain('{{../loginURL}}');
+    expect(page.url()).not.toContain('/login');
+    
+    // Basic smoke test - ensure page has content
+    const body = await page.locator('body').textContent();
+    expect(body?.length).toBeGreaterThan(0);
+    
+    {{#if expectedStatus}}
+    // Check response status if specified
+    const response = await page.goto('{{../baseURL}}{{url}}');
+    expect(response?.status()).toBe({{expectedStatus}});
+    {{/if}}
+    
+    {{#if keyElement}}
+    // Check for key element if specified
+    await expect(page.locator('{{keyElement}}')).toBeVisible();
+    {{/if}}
+  });
+  {{/eachRoute}}
+  {{else}}
+  // Full mode tests - Using route definitions from files
+  publicRoutes.forEach(({ url, title, expectedStatus, keyElement, timeout }) => {
+    test(`${title} should be accessible without authentication`, async ({ page }) => {
+      // Set custom timeout if specified
+      if (timeout) {
+        test.setTimeout(timeout);
+      }
+      
+      console.log(`🌐 Testing public route: ${url}`);
+      
+      // Navigate to the route
+      const response = await page.goto(`${testConfig.baseURL}${url}`);
+      
+      // Wait for page to load
+      await page.waitForLoadState('networkidle');
+      
+      // Verify we're not redirected to login
+      expect(page.url()).not.toContain(testConfig.loginURL);
+      expect(page.url()).not.toContain('/login');
+      expect(page.url()).not.toContain('/signin');
+      expect(page.url()).not.toContain('/auth');
+      
+      // Check response status
+      if (expectedStatus) {
+        expect(response?.status()).toBe(expectedStatus);
+      } else {
+        expect(response?.status()).toBeLessThan(400);
+      }
+      
+      // Verify page has content
+      const body = await page.locator('body').textContent();
+      expect(body?.length).toBeGreaterThan(0);
+      
+      // Check for key elements if specified
+      if (keyElement) {
+        await expect(page.locator(keyElement)).toBeVisible();
+      }
+      
+      {{#ifFramework "nextjs"}}
+      // Next.js specific checks
+      await expect(page.locator('body')).not.toHaveText(/Application error/i);
+      await expect(page.locator('body')).not.toHaveText(/500 - Internal Server Error/i);
+      {{/ifFramework}}
+      
+      {{#ifFramework "react"}}
+      // React specific checks  
+      await expect(page.locator('#root')).toBeVisible();
+      {{/ifFramework}}
+      
+      console.log(`✅ ${title} loaded successfully`);
+    });
+  });
+  {{/if}}
+  
+  {{#unless bare}}
+  test.afterAll(async () => {
+    console.log(`📊 Completed testing ${publicRoutes.length} public routes`);
+  });
+  {{/unless}}
+});

@@ -1,196 +1,311 @@
 # 🎭 Playwright Route Tester
 
-A powerful CLI tool that generates comprehensive Playwright tests for web application route testing with authentication redirect validation. Perfect for ensuring your app's security and functionality across all routes.
+An intelligent CLI tool that **automatically generates** comprehensive Playwright tests for web application route testing with authentication validation. Features smart project scanning, framework detection, and zero-configuration setup.
 
-## 🚀 Features
-
-- **🔐 Authentication Testing**: Automatically test that protected routes redirect to login
-- **🌐 Public Route Validation**: Ensure public pages load correctly
-- **🔌 API Security Testing**: Verify API endpoints return proper authentication errors
-- **⚡ Easy Setup**: Interactive CLI guides you through configuration
-- **🚀 Bare Mode**: Quick setup with minimal configuration for instant testing
-- **📊 Comprehensive Reports**: Detailed test results with security insights
-- **🎯 Customizable**: Flexible configuration for different application structures
-
-## 📦 Installation
-
-### Global Installation (Recommended)
+## ⚡ **NEW**: Zero-Configuration Smart Setup
 
 ```bash
+# ONE COMMAND - Detects everything automatically! 🚀
+npx playwright-route-tester setup
+
+# That's it! Routes detected, tests generated, ready to run ✨
+```
+
+## 🚀 Smart Features
+
+- **🧠 Auto-Detection**: Automatically scans your project for routes and framework
+- **🎯 Framework-Aware**: Supports Next.js, React, Express with optimized testing
+- **🔐 Security Testing**: Validates authentication redirects and API protection
+- **🌐 Route Discovery**: Finds routes in App Router, Pages Router, React Router, Express
+- **🔧 Jenkins Integration**: Self-configuring CI/CD pipelines
+- **📊 Smart Reports**: Framework-specific insights and comprehensive analysis
+- **⚡ Zero Config**: Works out of the box with intelligent defaults
+- **🎨 Beautiful CLI**: Intuitive interface with helpful guidance
+
+## 📦 Installation & Quick Start
+
+### ⚡ Instant Setup (Recommended)
+
+```bash
+# Zero-configuration setup - detects everything automatically
+npx playwright-route-tester setup
+
+# With Jenkins pipeline generation
+npx playwright-route-tester setup --jenkins
+
+# Then run your tests
+cd playwright-tests && npm install && npm test
+```
+
+### 🔍 Analyze Your Project First
+
+```bash
+# See what routes and framework are detected
+npx playwright-route-tester scan
+
+# JSON output for programmatic use
+npx playwright-route-tester scan --json
+```
+
+### 📦 Installation Options
+
+```bash
+# Global installation
 npm install -g playwright-route-tester
-```
 
-### NPX (No Installation Required)
+# NPX (no installation required)
+npx playwright-route-tester setup
 
-```bash
-npx playwright-route-tester init
-```
-
-### Local Project Installation
-
-```bash
+# Local project installation
 npm install playwright-route-tester --save-dev
 ```
 
-## 🎬 Quick Start
+## 🎬 Smart Setup Options
 
-### Option 1: Bare Mode (Recommended for Quick Testing)
+### 🧠 Option 1: Smart Setup (Recommended)
 
-Perfect for getting started quickly with minimal configuration:
+**Zero configuration required** - automatically detects your project:
 
 ```bash
-# Create bare setup with default routes
-playwright-route-tester init --bare
-
-# Setup dependencies
-cd playwright-tests && npm install && npx playwright install
-
-# Add to your main package.json scripts:
-# "test:routes": "npx playwright test --config=playwright-tests/playwright.config.js"
-
-# Run from your project root
-npm run test:routes
+# Detects framework, finds routes, generates optimized tests
+npx playwright-route-tester setup
 ```
 
-**What you get with `--bare`:**
-- ✅ Public routes: `/`, `/about`, `/contact`  
-- ✅ Protected routes: `/dashboard`, `/profile`, `/settings`
-- ✅ API routes: `/api/users`, `/api/products`
-- ✅ Tests runnable from project root
-- ✅ No interactive prompts needed
+**What Smart Setup detects automatically:**
+- 🎯 **Framework**: Next.js (App/Pages Router), React Router, Express, etc.
+- 🔍 **Routes**: File-based routing, code-based routing, API endpoints
+- 🔐 **Authentication**: Login patterns, protected route detection
+- ⚙️ **Configuration**: Base URLs, build commands, optimal settings
 
-### Option 2: Interactive Setup (Full Customization)
+**Supports these frameworks out of the box:**
+- **Next.js**: App Router (`app/`), Pages Router (`pages/`), API routes
+- **React**: React Router, client-side routing patterns  
+- **Express**: Route definitions, middleware, REST APIs
+- **Generic**: Intelligent defaults for any web application
 
-For detailed configuration of your specific routes:
+### 🔍 Option 2: Scan First, Then Setup
+
+**Analyze your project** before generating tests:
 
 ```bash
-# Interactive setup
+# See what will be detected
+npx playwright-route-tester scan
+
+# Then setup with detected routes
+npx playwright-route-tester init --scan
+```
+
+### 🎛️ Option 3: Interactive Setup
+
+**Full customization** with smart suggestions:
+
+```bash
+# Interactive mode with auto-detection assistance
 playwright-route-tester init
 
-# Or specify target directory
+# Custom directory
 playwright-route-tester init --directory ./my-tests
 ```
 
-The CLI will prompt you for:
+**Smart prompts will show:**
+- Detected framework and suggest optimizations
+- Found routes with confirmation options
+- Intelligent defaults based on your project structure
 
-- **Base URL**: Your application's base URL (e.g., `http://localhost:3000`)
-- **Login URL**: Path to your login page (e.g., `/login`)
-- **Public Routes**: Routes accessible without authentication
-- **Protected Routes**: Routes that should redirect to login
-- **API Routes**: API endpoints to test for authentication
+## 🔍 Smart Detection Examples
 
-Then run your tests:
-
+### Next.js Project Detection
 ```bash
-cd ./playwright-tests  # or your chosen directory
-npm install
-npx playwright install
-npm test
+🎭 Smart Playwright Route Tester Setup
+
+🔍 Scanning project for routes and configuration...
+✅ Auto-detected nextjs project
+📊 Found 8 public, 5 protected, 12 API routes
+   Public routes: /, /about, /contact, /pricing
+   Protected routes: /dashboard, /profile, /settings, /admin
+   API routes: /api/users, /api/auth/login, /api/products...
+
+📁 Creating framework-optimized tests...
+✅ Next.js App Router features enabled
+✅ Dynamic route testing configured
+✅ API route authentication testing ready
 ```
 
-## 📋 Example Configuration
-
-When you run `playwright-route-tester init`, you'll be guided through configuration like this:
-
+### React Router Project Detection
 ```bash
-🎭 Playwright Route Tester Setup
+🔍 Scanning project for routes and configuration...
+✅ Auto-detected react project with react-router-dom
+📊 Found 6 public, 4 protected, 0 API routes
+   Router type: react-router-dom v6
+   Routes found in: src/App.jsx, src/routes/index.js
 
-? What is your application base URL? http://localhost:3000
-? What is your login page URL (relative to base URL)? /login
-? Do you want to include API route testing? Yes
-? Enter public routes (comma-separated): /, /about, /contact, /pricing
-? Enter protected routes (comma-separated): /dashboard, /profile, /settings
-? Enter API routes to test (comma-separated): /api/user, /api/orders
+🎯 React-specific features enabled:
+✅ Client-side navigation testing
+✅ SPA route validation
+✅ History API testing
 ```
 
-## 📁 Generated Project Structure
+## 📁 Smart Generated Project Structure
 
 ```
 playwright-tests/
 ├── config/
-│   └── test-config.js          # Test configuration
+│   └── test-config.js          # 🧠 Framework-aware configuration
 ├── helpers/
-│   └── redirect-helper.js      # Authentication helpers
+│   └── redirect-helper.js      # 🔧 Smart auth helpers with framework detection
 ├── routes/
-│   ├── public-routes.js        # Public route definitions
-│   ├── protected-routes.js     # Protected route definitions
-│   └── api-routes.js           # API route definitions
+│   ├── public-routes.js        # 📍 Auto-discovered public routes
+│   ├── protected-routes.js     # 🔐 Detected protected routes
+│   └── api-routes.js           # 🔌 Found API endpoints
 ├── tests/
-│   ├── public-routes.spec.js   # Public route tests
-│   ├── auth-redirect.spec.js   # Authentication redirect tests
-│   └── api-routes.spec.js      # API authentication tests
-├── playwright.config.js        # Playwright configuration
-└── package.json               # Test project dependencies
+│   ├── public-routes.spec.js   # 🌐 Framework-optimized public route tests
+│   ├── auth-redirect.spec.js   # 🔐 Intelligent authentication testing
+│   └── api-routes.spec.js      # 🔌 API security validation
+├── playwright.config.js        # ⚙️ Framework-specific Playwright config
+└── package.json               # 📦 Optimized dependencies & scripts
 ```
 
-## 🔧 CLI Commands
+### Framework-Specific Optimizations
 
-### `init`
+**Next.js Projects:**
+- App Router vs Pages Router detection
+- Dynamic route testing (`[id]`, `[...slug]`)
+- API route security validation
+- Build integration and SSR considerations
 
-Initialize a new test suite:
+**React Projects:**
+- React Router integration
+- Client-side navigation testing
+- SPA-specific authentication patterns
+
+**Express Projects:**
+- Route parsing and middleware detection
+- REST API security testing
+- Server-side authentication validation
+
+## 🔧 Enhanced CLI Commands
+
+### 🧠 `setup` - Smart Zero-Config Setup
+
+**Automatically detects everything:**
+
+```bash
+playwright-route-tester setup [options]
+
+Options:
+  -d, --directory <path>  Target directory (default: ./playwright-tests)
+  --jenkins              Include Jenkins pipeline generation
+  --force                Overwrite existing files
+
+# Examples
+playwright-route-tester setup                    # Smart detection
+playwright-route-tester setup --jenkins          # With CI/CD pipeline
+playwright-route-tester setup -d ./e2e-tests     # Custom directory
+```
+
+### 🔍 `scan` - Project Analysis
+
+**Analyze your project without generating tests:**
+
+```bash
+playwright-route-tester scan [options]
+
+Options:
+  --json                 Output results as JSON
+
+# Examples
+playwright-route-tester scan                     # Human-readable analysis
+playwright-route-tester scan --json             # JSON output
+```
+
+### 🔧 `jenkins` - CI/CD Pipeline Generation
+
+**Generate self-configuring Jenkins pipeline:**
+
+```bash
+playwright-route-tester jenkins [options]
+
+Options:
+  --framework <name>     Specify framework (nextjs, react, express)
+
+# Examples
+playwright-route-tester jenkins                  # Auto-detect framework
+playwright-route-tester jenkins --framework nextjs
+```
+
+### ℹ️ `info` - Project Information
+
+**Show detected project details:**
+
+```bash
+playwright-route-tester info                     # Show project analysis
+```
+
+### 🎛️ `init` - Enhanced Interactive Setup
+
+**Interactive mode with smart suggestions:**
 
 ```bash
 playwright-route-tester init [options]
 
 Options:
   -d, --directory <path>  Target directory (default: ./playwright-tests)
-  -b, --bare             Create minimal setup without prompts - generates barebone 
-                         public, protected and API tests with default routes
+  -b, --bare             Create minimal setup without prompts
+  --scan                 Auto-scan project first, then confirm
+
+# Examples
+playwright-route-tester init --scan             # Scan + interactive
+playwright-route-tester init --bare             # Quick defaults
 ```
 
-#### Bare Mode Examples
+### ➕ `add-route` - Enhanced Route Management
 
-```bash
-# Quick setup with defaults
-playwright-route-tester init --bare
-
-# Bare setup in custom directory  
-playwright-route-tester init --bare --directory ./e2e-tests
-
-# Then add to your package.json:
-{
-  "scripts": {
-    "test:routes": "npx playwright test --config=./e2e-tests/playwright.config.js",
-    "test:routes:headed": "npx playwright test --config=./e2e-tests/playwright.config.js --headed"
-  }
-}
-```
-
-### `add-route`
-
-Add a new route to existing configuration:
+**Add routes with smart validation:**
 
 ```bash
 playwright-route-tester add-route [options]
 
 Options:
-  -t, --type <type>    Route type: public, protected, api (default: public)
+  -t, --type <type>    Route type: public, protected, api
   -u, --url <url>      Route URL
   -n, --name <name>    Route name/title
+
+# Interactive mode with smart prompts
+playwright-route-tester add-route
 ```
 
-## 🔍 Test Types
+## 🧪 Smart Test Types
 
-### Public Routes Testing
+### 🌐 Framework-Aware Public Routes Testing
 
-- ✅ Verifies routes load with expected status codes
-- ✅ Checks for key page elements
-- ✅ Validates page accessibility
-- ✅ Takes screenshots on failures
+- ✅ **Smart Status Validation**: Expected codes based on framework patterns
+- ✅ **Framework-Specific Checks**: Next.js error pages, React SPA validation
+- ✅ **Dynamic Route Testing**: Handles `[id]`, `[...slug]` patterns automatically  
+- ✅ **Performance Insights**: Load times, bundle analysis for detected frameworks
+- ✅ **Accessibility Validation**: Framework-specific a11y patterns
 
-### Authentication Redirect Testing
+### 🔐 Intelligent Authentication Testing
 
-- 🔐 Ensures protected routes redirect to login when not authenticated
-- 🔐 Detects potential security vulnerabilities
-- 🔐 Validates login page accessibility
-- 🔐 Generates security reports
+- 🧠 **Smart Login Detection**: Automatically finds login forms and patterns
+- 🔐 **Framework Auth Patterns**: Next.js middleware, React Router guards, Express sessions
+- 🔐 **Multi-Strategy Testing**: Handles different auth implementations
+- 🔐 **Security Vulnerability Scanning**: Detects unprotected routes that should be secured
+- 🔐 **Advanced Redirect Validation**: Complex redirect chains and edge cases
 
-### API Authentication Testing
+### 🔌 Advanced API Security Testing
 
-- 🔌 Tests API endpoints return 401 when not authenticated
-- 🔌 Validates error response formats
-- 🔌 Checks authentication error messages
-- 🔌 Ensures proper API security
+- 🎯 **Endpoint Discovery**: Automatically finds API routes in code and file structure
+- 🔌 **Method-Aware Testing**: GET, POST, PUT, DELETE with appropriate expectations
+- 🔌 **Framework Integration**: Next.js API routes, Express middleware, REST patterns
+- 🔌 **Error Response Validation**: Proper error codes, messages, and formats
+- 🔌 **CORS and Headers**: Security header validation
+
+### 📊 Smart Reporting
+
+- 📈 **Framework-Specific Insights**: Tailored reports for your stack
+- 🎯 **Security Score**: Overall application security assessment
+- 📋 **Detailed Findings**: Route-by-route analysis with recommendations
+- 🔍 **Vulnerability Detection**: Potential security issues with fix suggestions
 
 ## 🛠️ Programmatic API
 
@@ -309,90 +424,191 @@ export const testConfig = {
 };
 ```
 
-## 🚀 Publishing Your Tests
+## 🚀 Running Your Smart Tests
 
-### Run Tests
+### 📋 Generated Test Scripts
+
+Smart setup creates optimized test scripts:
+
 ```bash
+# Generated in playwright-tests/package.json
 npm test                    # Run all tests
-npm run test:headed         # Run with browser UI
+npm run test:headed         # Run with browser UI  
 npm run test:debug          # Debug mode
+npm run test:ui             # Interactive UI mode
+npm run test:public         # Only public route tests
+npm run test:protected      # Only authentication tests  
+npm run test:api            # Only API security tests
 npm run report              # Show HTML report
 ```
 
-### CI/CD Integration
+### 🔧 Jenkins Integration (Zero Configuration!)
 
-The generated tests work great in CI/CD pipelines:
+**Generate a complete Jenkins pipeline:**
 
-#### For Bare Mode Setup:
-```yaml
-# GitHub Actions example
-- name: Install test dependencies
-  run: |
-    cd playwright-tests
-    npm ci
-    npx playwright install
-
-- name: Run route tests from project root
-  run: npm run test:routes
+```bash
+# Creates a self-configuring Jenkinsfile
+playwright-route-tester jenkins
 ```
 
-#### For Interactive Mode Setup:
-```yaml
-# GitHub Actions example
-- name: Install dependencies
-  run: |
-    cd playwright-tests
-    npm ci
-    npx playwright install
+**The generated pipeline automatically:**
+- 🔍 Detects your framework and generates tests during build
+- 🏥 Starts your application and performs health checks
+- 🧪 Runs tests in parallel (public, protected, API)
+- 📊 Generates beautiful HTML reports with framework insights
+- 🧹 Handles cleanup and artifact management
+- ⚙️ Works with Next.js, React, Express automatically
 
-- name: Run Playwright tests
-  run: |
-    cd playwright-tests
-    npm test
+### 🤖 CI/CD Integration
+
+#### GitHub Actions (Smart Setup)
+```yaml
+name: Smart Route Testing
+
+on: [push, pull_request]
+
+jobs:
+  test-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      # Zero-configuration setup!
+      - name: Generate and run route tests
+        run: |
+          npx playwright-route-tester setup
+          cd playwright-tests
+          npm ci
+          npx playwright install
+          npm test
 ```
 
-## 🆚 Bare Mode vs Interactive Mode
+#### GitLab CI (Framework Detection)
+```yaml
+stages:
+  - test
 
-| Feature | Bare Mode (`--bare`) | Interactive Mode |
-|---------|---------------------|------------------|
-| **Setup Time** | ⚡ Instant (no prompts) | 🐌 Interactive prompts |
-| **Configuration** | 🎯 Default routes only | 🎛️ Fully customizable |
-| **Test Execution** | 🏠 From project root | 📁 From test directory |
-| **Routes Included** | ✅ Common defaults | ✅ Your specific routes |
-| **Best For** | 🚀 Quick testing, CI/CD | 🔧 Production apps |
+route-testing:
+  stage: test
+  script:
+    - npx playwright-route-tester setup --jenkins
+    - cd playwright-tests && npm ci && npx playwright install
+    - npm test
+  artifacts:
+    reports:
+      junit: playwright-tests/test-results/results.xml
+    paths:
+      - playwright-tests/playwright-report/
+```
 
-**Use Bare Mode When:**
-- You want to quickly test standard routes (`/`, `/dashboard`, `/api/*`)
-- You're setting up CI/CD pipelines  
-- You want tests runnable from your main project
-- You prefer minimal configuration
+## 🆚 Setup Mode Comparison
 
-**Use Interactive Mode When:**
-- You have specific custom routes to test
-- You need detailed configuration options
-- You want a standalone test project
-- Your routes don't match the defaults
+| Feature | Smart Setup (`setup`) | Interactive Mode (`init`) | Legacy Bare Mode |
+|---------|----------------------|-------------------------|------------------|
+| **Setup Time** | ⚡ Instant (auto-detection) | 🎛️ Guided with suggestions | ⚡ Instant defaults |
+| **Route Detection** | 🧠 Automatically scans code | 🔍 Suggests + manual confirm | 🎯 Generic defaults |
+| **Framework Support** | 🎯 Full framework optimization | 🎛️ Framework-aware prompts | ❌ Generic only |
+| **Configuration** | 🤖 Intelligent auto-config | 🛠️ Fully customizable | 📝 Basic defaults |
+| **Best For** | 🚀 **Most users** - works everywhere | 🔧 Custom requirements | 🏃 Legacy compatibility |
 
-## 🛡️ Security Features
+### 🎯 **Recommended: Smart Setup**
 
-- **Vulnerability Detection**: Identifies routes that should be protected but aren't
-- **Security Reports**: Detailed reports of potential security issues
-- **Authentication Validation**: Ensures proper redirect behavior
-- **API Security**: Validates API authentication requirements
+**Use Smart Setup (`setup`) when:**
+- ✅ You want the easiest, most accurate setup
+- ✅ Your project uses Next.js, React, or Express
+- ✅ You want framework-specific optimizations
+- ✅ You're setting up CI/CD pipelines
+- ✅ You want the best testing experience
+
+**Use Interactive Mode (`init`) when:**
+- 🛠️ You need to customize specific route configurations
+- 🔧 Your routes don't follow standard patterns
+- 🎛️ You want to review and modify detected routes
+- 📝 You have complex authentication requirements
+
+**Use Legacy Bare Mode when:**
+- 🔄 Migrating from older versions
+- 🏃 You need basic tests with minimal setup
+- 📦 Framework detection isn't needed
+
+## 🛡️ Advanced Security Features
+
+### 🧠 Smart Vulnerability Detection
+- **Route Pattern Analysis**: Identifies routes that look like they should be protected
+- **Framework-Specific Security**: Next.js middleware, React Router guards, Express sessions
+- **Authentication Flow Testing**: Complex redirect chains and edge cases
+- **API Security Scanning**: Comprehensive endpoint protection validation
+
+### 📊 Security Reporting
+- **Security Score Dashboard**: Overall application security assessment
+- **Risk Classification**: High/Medium/Low risk findings with explanations
+- **Fix Recommendations**: Specific guidance for securing vulnerable routes
+- **Compliance Checks**: Common security standard validations
+
+### 🎯 Framework-Aware Security Testing
+- **Next.js**: Middleware validation, API route protection, SSR security
+- **React**: Client-side auth guards, protected component testing
+- **Express**: Middleware chains, session validation, CORS configuration
+- **Generic**: Universal security patterns and best practices
+
+## 🌟 Why Choose Playwright Route Tester?
+
+### 🧠 **Intelligent & Automatic**
+- Zero configuration required - works out of the box
+- Smart framework detection and optimization  
+- Automatic route discovery and categorization
+- Self-configuring CI/CD pipelines
+
+### 🎯 **Framework-First Approach**
+- **Next.js**: App Router, Pages Router, API routes, dynamic routing
+- **React**: React Router, client-side navigation, SPA patterns
+- **Express**: REST APIs, middleware, authentication patterns
+- **Extensible**: Easy to add support for new frameworks
+
+### 🔐 **Security-Focused**
+- Comprehensive authentication testing
+- API security validation  
+- Vulnerability detection and reporting
+- Security best practices enforcement
+
+### 🚀 **Developer Experience**
+- Beautiful CLI with helpful guidance
+- Rich HTML reports with actionable insights
+- Jenkins integration with zero configuration
+- Backward compatibility with existing setups
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! The new smart architecture makes it easy to:
+- Add support for new frameworks in `src/core/frameworks/`
+- Enhance route detection patterns
+- Improve template generation
+- Add new CLI commands
+
+Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## 📄 License
 
-MIT © [Your Name]
+MIT © Muhammad Haroon Aslam
 
 ## 🐛 Issues & Support
 
-- 🐛 [Report Issues](https://github.com/yourusername/playwright-route-tester/issues)
-- 💬 [Discussions](https://github.com/yourusername/playwright-route-tester/discussions)
-- 📚 [Documentation](https://github.com/yourusername/playwright-route-tester/wiki)
+- 🐛 [Report Issues](https://github.com/muhharoonaslam/playwright-route-tester/issues)
+- 💬 [Discussions](https://github.com/muhharoonaslam/playwright-route-tester/discussions)
+- 📚 [Documentation](https://github.com/muhharoonaslam/playwright-route-tester/wiki)
+- 📧 Email: muhharoonaslam@gmail.com
+
+## 🎉 Recent Updates (v2.0)
+
+- 🧠 **Smart Auto-Detection**: Zero-configuration setup with intelligent project scanning
+- 🎯 **Framework Support**: Full Next.js, React, and Express optimization
+- 🔧 **Jenkins Integration**: Self-configuring CI/CD pipelines
+- 📊 **Enhanced Reporting**: Framework-specific insights and security scoring  
+- 🎨 **Better CLI**: Beautiful interface with helpful guidance
+- 📦 **90% Smaller**: Unified templates reduce complexity and maintenance
 
 ---
 
@@ -400,6 +616,8 @@ MIT © [Your Name]
 
 **⭐ Star this repo if it helps secure your application! ⭐**
 
-Made with ❤️ for the testing community
+**Made with ❤️ for the testing community**
+
+*Now with smart detection and zero-configuration setup!*
 
 </div>

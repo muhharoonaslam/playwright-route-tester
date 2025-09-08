@@ -1,0 +1,96 @@
+import { defineConfig, devices } from '@playwright/test';
+{{#ifFramework "nextjs"}}
+import { testConfig } from './config/test-config.js';
+{{else}}
+{{#ifFramework "express"}}
+import { testConfig } from './config/test-config.js';
+{{else}}
+import { testConfig } from './config/test-config.js';
+{{/ifFramework}}
+{{/ifFramework}}
+
+export default defineConfig({
+  testDir: './tests',
+  timeout: {{#if bare}}30000{{else}}testConfig.timeout || 30000{{/if}},
+  expect: { timeout: 5000 },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['html'],
+    {{#if features.jenkins}}['junit', { outputFile: '../test-results/results.xml' }]{{else}}['list']{{/if}}
+  ],
+  
+  use: {
+    baseURL: '{{baseURL}}',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    {{#ifFramework "nextjs"}}
+    // Next.js specific settings
+    ignoreHTTPSErrors: true,
+    {{/ifFramework}}
+    {{#ifFramework "express"}}
+    // Express specific settings
+    extraHTTPHeaders: {
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    },
+    {{/ifFramework}}
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {{#ifFeature "multipleBrewsers"}}
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {{/ifFeature}}
+    {{#ifFeature "mobile"}}
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
+    {{/ifFeature}}
+  ],
+
+  {{#unless bare}}
+  webServer: process.env.CI ? undefined : {
+    {{#ifFramework "nextjs"}}
+    command: '{{#includeScript "dev"}}npm run dev{{else}}npx next dev{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    {{/ifFramework}}
+    {{#ifFramework "express"}}
+    command: '{{#includeScript "start"}}npm start{{else}}node server.js{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    {{/ifFramework}}
+    {{#ifFramework "react"}}
+    command: '{{#includeScript "start"}}npm start{{else}}npm run dev{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    {{/ifFramework}}
+    {{#unless framework}}
+    command: 'echo "Configure your dev server command here"',
+    port: 3000,
+    {{/unless}}
+    reuseExistingServer: !process.env.CI,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+  {{/unless}}
+  
+  {{#ifFeature "jenkins"}}
+  // Jenkins specific configuration
+  outputDir: '../test-results',
+  {{/ifFeature}}
+});

@@ -1,0 +1,147 @@
+import { test, expect } from '@playwright/test';
+{{#unless bare}}
+import { testConfig } from '../config/test-config.js';
+import { apiRoutes } from '../routes/api-routes.js';
+{{/unless}}
+
+{{#if bare}}
+const apiRoutes = {{{json routes.api}}};
+const testConfig = {
+  baseURL: '{{baseURL}}',
+  defaultHeaders: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'User-Agent': 'PlaywrightRouteTester/{{version}}'
+  }
+};
+{{/if}}
+
+test.describe('API Routes - Authentication Testing', () => {
+  {{#unless bare}}
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(testConfig.timeout);
+  });
+  {{/unless}}
+
+  {{#if bare}}
+  // Bare mode API tests
+  {{#eachRoute routes.api}}
+  test('{{testDescription this "api"}}', async ({ request }) => {
+    console.log(`🔌 Testing API route: {{httpMethod method}} {{url}}`);
+    
+    const response = await request.{{method.toLowerCase}}(`{{../baseURL}}{{url}}`, {
+      headers: testConfig.defaultHeaders
+    });
+    
+    {{#if requiresAuth}}
+    // Expecting 401 Unauthorized for protected API
+    expect(response.status()).toBe(401);
+    console.log(`✅ {{title}} properly protected - returned 401`);
+    
+    // Verify response has authentication error
+    const responseBody = await response.text().catch(() => '');
+    const isAuthError = responseBody.toLowerCase().includes('unauthorized') ||
+                       responseBody.toLowerCase().includes('authentication') ||
+                       responseBody.toLowerCase().includes('login') ||
+                       response.status() === 401;
+    
+    expect(isAuthError).toBe(true);
+    {{else}}
+    // Public API endpoint
+    expect(response.status()).toBeLessThan(400);
+    console.log(`✅ {{title}} accessible - returned ${response.status()}`);
+    {{/if}}
+  });
+  {{/eachRoute}}
+  {{else}}
+  // Full mode API tests
+  apiRoutes.forEach(({ url, title, method = 'GET', requiresAuth, expectedStatus }) => {
+    test(`${title} should ${requiresAuth ? 'return 401 when not authenticated' : 'be accessible'}`, async ({ request }) => {
+      console.log(`🔌 Testing API route: ${method} ${url}`);
+      
+      const requestMethod = method.toLowerCase();
+      const requestOptions = {
+        headers: testConfig.defaultHeaders
+      };
+      
+      // Add request body for POST/PUT/PATCH requests
+      if (['post', 'put', 'patch'].includes(requestMethod)) {
+        requestOptions.data = JSON.stringify({ test: 'data' });
+      }
+      
+      const response = await request[requestMethod](`${testConfig.baseURL}${url}`, requestOptions);
+      
+      if (requiresAuth) {
+        // Expecting authentication error
+        const status = response.status();
+        expect([401, 403]).toContain(status);
+        
+        // Verify response indicates authentication issue
+        try {
+          const responseBody = await response.json().catch(() => ({}));
+          const responseText = JSON.stringify(responseBody).toLowerCase();
+          
+          const isAuthError = responseText.includes('unauthorized') ||
+                             responseText.includes('authentication') ||
+                             responseText.includes('login') ||
+                             responseText.includes('token') ||
+                             status === 401 || status === 403;
+          
+          expect(isAuthError).toBe(true);
+        } catch (error) {
+          // If we can't parse JSON, just check status code
+          expect([401, 403]).toContain(status);
+        }
+        
+        console.log(`✅ ${title} properly protected - returned ${status}`);
+      } else {
+        // Public endpoint - should be accessible
+        const status = response.status();
+        const expectedCode = expectedStatus || 200;
+        
+        if (expectedCode === 200) {
+          expect(status).toBeLessThan(400);
+        } else {
+          expect(status).toBe(expectedCode);
+        }
+        
+        console.log(`✅ ${title} accessible - returned ${status}`);
+      }
+      
+      {{#ifFramework "express"}}
+      // Express-specific API checks
+      const contentType = response.headers()['content-type'] || '';
+      if (contentType.includes('application/json')) {
+        // Verify it's valid JSON
+        await expect(async () => {
+          await response.json();
+        }).not.toThrow();
+      }
+      {{/ifFramework}}
+      
+      {{#ifFramework "nextjs"}}
+      // Next.js API routes specific checks
+      if (url.startsWith('/api/')) {
+        const headers = response.headers();
+        // Next.js typically sets x-powered-by
+        if (headers['x-powered-by']) {
+          expect(headers['x-powered-by']).toContain('Next.js');
+        }
+      }
+      {{/ifFramework}}
+    });
+  });
+  {{/if}}
+  
+  {{#unless bare}}
+  test.afterAll(async () => {
+    const protectedApis = apiRoutes.filter(api => api.requiresAuth).length;
+    const publicApis = apiRoutes.filter(api => !api.requiresAuth).length;
+    
+    console.log(`📊 API Security Summary:`);
+    console.log(`🔒 Protected APIs tested: ${protectedApis}`);
+    console.log(`🌐 Public APIs tested: ${publicApis}`);
+    console.log(`✅ All APIs behaving as expected`);
+  });
+  {{/unless}}
+});

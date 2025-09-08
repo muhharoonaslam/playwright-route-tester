@@ -7,101 +7,139 @@ import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Import new core modules
+import { ProjectScanner } from './core/scanner.js';
+import { TemplateEngine } from './core/templates/engine.js';
+import { NextjsFramework } from './core/frameworks/nextjs.js';
+import { ReactFramework } from './core/frameworks/react.js';
+import { ExpressFramework } from './core/frameworks/express.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Show banner on startup
+console.log(chalk.blue.bold('\n🎭 Playwright Route Tester'));
+console.log(chalk.gray('Smart test generation for web applications\n'));
 
 const program = new Command();
 
 program
   .name('playwright-route-tester')
-  .description('Generate Playwright tests for route testing with authentication validation')
-  .version('1.0.0');
+  .description('🎭 Smart Playwright test generator for route testing with authentication validation')
+  .version('1.0.1')
+  .configureHelp({
+    sortSubcommands: true,
+    subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
+  });
 
+// Help and information commands
+program
+  .command('info')
+  .description('ℹ️  Show project information and detected settings')
+  .action(async () => {
+    try {
+      const scanner = new ProjectScanner();
+      const results = await scanner.scan();
+      
+      console.log(chalk.blue.bold('📋 Project Information\n'));
+      
+      console.log(chalk.cyan('Project Details:'));
+      console.log(`  Framework: ${chalk.white(results.framework.name)} ${chalk.gray(results.framework.version || '')}`);
+      console.log(`  Base URL: ${chalk.white(results.config.baseURL)}`);
+      console.log(`  Login URL: ${chalk.white(results.config.loginURL)}`);
+      console.log(`  Project Path: ${chalk.white(results.config.projectPath)}`);
+      
+      const existingTests = await directoryHasContents('./playwright-tests');
+      console.log(`  Tests Setup: ${existingTests ? chalk.green('✅ Configured') : chalk.yellow('❌ Not configured')}`);
+      
+      console.log(chalk.cyan('\nRoute Summary:'));
+      console.log(`  🌐 Public Routes: ${chalk.white(results.routes.public.length)}`);
+      console.log(`  🔒 Protected Routes: ${chalk.white(results.routes.protected.length)}`);
+      console.log(`  🔌 API Routes: ${chalk.white(results.routes.api.length)}`);
+      
+      if (results.routes.public.length + results.routes.protected.length + results.routes.api.length === 0) {
+        console.log(chalk.yellow('\n⚠️  No routes detected. Try running with manual configuration.'));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to get project info:'), error.message);
+    }
+  });
+
+// New smart setup command
+program
+  .command('setup')
+  .description('🚀 Smart zero-configuration setup - automatically detects your project')
+  .option('-d, --directory <path>', 'Target directory', './playwright-tests')
+  .option('--jenkins', 'Include Jenkins pipeline configuration')
+  .option('--force', 'Overwrite existing files')
+  .action(async (options) => {
+    await smartSetup(options);
+  });
+
+// Enhanced scan command
+program
+  .command('scan')
+  .description('🔍 Scan current project for routes and framework detection')
+  .option('--json', 'Output results as JSON')
+  .action(async (options) => {
+    await scanProject(options);
+  });
+
+// Legacy init command (maintained for backwards compatibility)
 program
   .command('init')
-  .description('Initialize Playwright route testing setup')
+  .description('Initialize Playwright route testing setup (interactive mode)')
   .option('-d, --directory <path>', 'Target directory', './playwright-tests')
-  .option('-b, --bare', 'Create minimal setup without prompts - generates barebone public, protected and API tests')
+  .option('-b, --bare', 'Create minimal setup without prompts')
+  .option('--scan', 'Auto-scan project first, then prompt for confirmation')
   .action(async (options) => {
     console.log(chalk.blue.bold('🎭 Playwright Route Tester Setup\n'));
-
-    let answers;
-
-    if (options.bare) {
-      // Bare mode - use defaults without prompts
-      answers = {
-        baseURL: 'http://localhost:3000',
-        loginURL: '/login',
-        includeAPI: true,
-        publicRoutes: ['/', '/about', '/contact'],
-        protectedRoutes: ['/dashboard', '/profile', '/settings'],
-        apiRoutes: ['/api/users', '/api/products']
-      };
-      console.log(chalk.yellow('🚀 Creating bare setup with default routes...\n'));
-    } else {
-      answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'baseURL',
-          message: 'What is your application base URL?',
-          default: 'http://localhost:3000',
-          validate: (input) => {
-            try {
-              new URL(input);
-              return true;
-            } catch {
-              return 'Please enter a valid URL';
-            }
-          }
-        },
-        {
-          type: 'input',
-          name: 'loginURL',
-          message: 'What is your login page URL (relative to base URL)?',
-          default: '/login'
-        },
-        {
-          type: 'confirm',
-          name: 'includeAPI',
-          message: 'Do you want to include API route testing?',
-          default: true
-        },
-        {
-          type: 'input',
-          name: 'publicRoutes',
-          message: 'Enter public routes (comma-separated):',
-          default: '/, /about, /contact',
-          filter: (input) => input.split(',').map(route => route.trim())
-        },
-        {
-          type: 'input',
-          name: 'protectedRoutes',
-          message: 'Enter protected routes (comma-separated):',
-          default: '/dashboard, /profile, /settings',
-          filter: (input) => input.split(',').map(route => route.trim())
-        }
-      ]);
-
-      if (answers.includeAPI) {
-        const apiAnswers = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'apiRoutes',
-            message: 'Enter API routes to test (comma-separated):',
-            default: '/api/users, /api/products',
-            filter: (input) => input.split(',').map(route => route.trim())
-          }
-        ]);
-        answers.apiRoutes = apiAnswers.apiRoutes;
+    
+    let scanResults = null;
+    if (options.scan || !options.bare) {
+      console.log(chalk.yellow('🔍 Scanning your project first...\n'));
+      try {
+        const scanner = new ProjectScanner();
+        scanResults = await scanner.scan();
+        
+        console.log(chalk.green(`✅ Detected ${scanResults.framework.name} project`));
+        console.log(chalk.cyan(`📊 Found ${scanResults.routes.public.length} public, ${scanResults.routes.protected.length} protected, ${scanResults.routes.api.length} API routes\n`));
+      } catch (error) {
+        console.log(chalk.yellow('⚠️  Could not auto-scan project, falling back to manual setup\n'));
       }
     }
 
-    await generateProject(options.directory, answers, options.bare);
+    let config;
+    if (options.bare) {
+      config = scanResults ? {
+        baseURL: scanResults.config.baseURL,
+        loginURL: scanResults.config.loginURL,
+        includeAPI: scanResults.routes.api.length > 0,
+        routes: scanResults.routes,
+        framework: scanResults.framework
+      } : {
+        baseURL: 'http://localhost:3000',
+        loginURL: '/login',
+        includeAPI: true,
+        routes: {
+          public: [{ url: '/', title: 'Home Page' }, { url: '/about', title: 'About' }],
+          protected: [{ url: '/dashboard', title: 'Dashboard' }],
+          api: [{ url: '/api/users', title: 'Users API' }]
+        },
+        framework: { name: 'unknown' }
+      };
+    } else {
+      config = await interactiveSetup(scanResults);
+    }
+
+    await generateSmartProject(options.directory, config, options.bare);
   });
 
+// Enhanced add-route command
 program
   .command('add-route')
-  .description('Add a new route to existing test configuration')
+  .description('📝 Add a new route to existing test configuration')
   .option('-t, --type <type>', 'Route type (public, protected, api)', 'public')
   .option('-u, --url <url>', 'Route URL')
   .option('-n, --name <name>', 'Route name/title')
@@ -109,18 +147,35 @@ program
     if (!options.url) {
       const answers = await inquirer.prompt([
         {
+          type: 'list',
+          name: 'type',
+          message: 'What type of route?',
+          choices: [
+            { name: '🌐 Public Route (accessible without auth)', value: 'public' },
+            { name: '🔒 Protected Route (requires auth)', value: 'protected' },
+            { name: '🔌 API Route (backend endpoint)', value: 'api' }
+          ],
+          default: options.type
+        },
+        {
           type: 'input',
           name: 'url',
           message: 'Enter the route URL:',
-          validate: (input) => input.length > 0 || 'URL is required'
+          validate: (input) => {
+            if (!input.trim()) return 'URL is required';
+            if (!input.startsWith('/')) return 'URL must start with /';
+            return true;
+          }
         },
         {
           type: 'input',
           name: 'name',
-          message: 'Enter a descriptive name for this route:',
+          message: 'Enter a descriptive name:',
           validate: (input) => input.length > 0 || 'Name is required'
         }
       ]);
+      
+      options.type = answers.type;
       options.url = answers.url;
       options.name = answers.name;
     }
@@ -128,217 +183,410 @@ program
     await addRoute(options.type, options.url, options.name);
   });
 
-async function generateProject(targetDir, config, isBare = false) {
+// New smart setup function
+async function smartSetup(options) {
   try {
-    console.log(chalk.yellow(`📁 Creating project in ${targetDir}...\n`));
-
-    await fs.ensureDir(targetDir);
-
-    const templatesDir = path.join(__dirname, '../templates');
+    console.log(chalk.blue.bold('🚀 Smart Playwright Route Tester Setup\n'));
     
-    // Copy and process templates
-    if (isBare) {
-      await processTemplate(
-        path.join(templatesDir, 'bare.playwright.config.js.template'),
-        path.join(targetDir, 'playwright.config.js'),
-        config
-      );
-
-      await processTemplate(
-        path.join(templatesDir, 'config/bare.test-config.js.template'),
-        path.join(targetDir, 'config/test-config.js'),
-        config
-      );
-    } else {
-      await processTemplate(
-        path.join(templatesDir, 'playwright.config.js.template'),
-        path.join(targetDir, 'playwright.config.js'),
-        config
-      );
-
-      await processTemplate(
-        path.join(templatesDir, 'config/test-config.js.template'),
-        path.join(targetDir, 'config/test-config.js'),
-        config
-      );
-    }
-
-    await processTemplate(
-      path.join(templatesDir, 'helpers/redirect-helper.js.template'),
-      path.join(targetDir, 'helpers/redirect-helper.js'),
-      config
-    );
-
-    // Generate route files
-    await generateRouteFiles(targetDir, config);
-
-    // Generate test files
-    await generateTestFiles(targetDir, config, isBare);
-
-    // Generate package.json for the test project
-    await generateTestPackageJson(targetDir, isBare);
-
-    console.log(chalk.green.bold('✅ Project setup complete!\n'));
+    const scanner = new ProjectScanner();
+    const scanResults = await scanner.scan();
     
-    if (isBare) {
-      console.log(chalk.cyan('Bare setup created with:'));
-      console.log(chalk.white('• Public route tests'));
-      console.log(chalk.white('• Protected route authentication tests'));
-      console.log(chalk.white('• API route tests'));
-      console.log(chalk.yellow('\nSetup:'));
-      console.log(chalk.white(`1. cd ${targetDir} && npm install && npx playwright install`));
-      console.log(chalk.yellow('\nAdd to your main package.json scripts:'));
-      console.log(chalk.green(`"test:routes": "npx playwright test --config=${targetDir}/playwright.config.js"`));
-      console.log(chalk.yellow('\nThen run from project root:'));
-      console.log(chalk.white(`npm run test:routes`));
-    } else {
-      console.log(chalk.cyan('Next steps:'));
-      console.log(chalk.white(`1. cd ${targetDir}`));
-      console.log(chalk.white('2. npm install'));
-      console.log(chalk.white('3. npx playwright install'));
-      console.log(chalk.white('4. npm test'));
+    console.log(chalk.green(`✅ Auto-detected ${scanResults.framework.name} project`));
+    console.log(chalk.cyan(`📊 Found ${scanResults.routes.public.length} public, ${scanResults.routes.protected.length} protected, ${scanResults.routes.api.length} API routes`));
+    
+    if (scanResults.routes.public.length > 0) {
+      console.log(chalk.white('   Public routes:'), scanResults.routes.public.map(r => r.url).join(', '));
     }
-
+    if (scanResults.routes.protected.length > 0) {
+      console.log(chalk.white('   Protected routes:'), scanResults.routes.protected.map(r => r.url).join(', '));
+    }
+    if (scanResults.routes.api.length > 0) {
+      console.log(chalk.white('   API routes:'), scanResults.routes.api.map(r => r.url).join(', '));
+    }
+    
+    console.log();
+    
+    const config = {
+      ...scanResults.config,
+      routes: scanResults.routes,
+      framework: scanResults.framework,
+      features: {
+        jenkins: options.jenkins,
+        bare: true // Smart setup always uses bare mode for simplicity
+      },
+      targetDir: options.directory,
+      projectPath: process.cwd()
+    };
+    
+    await generateSmartProject(options.directory, config, true);
+    
+    // Generate Jenkins config if requested
+    if (options.jenkins) {
+      await generateJenkinsConfig(config);
+    }
+    
+    console.log(chalk.green.bold('\n✅ Smart setup completed!\n'));
+    console.log(chalk.cyan('Next steps:'));
+    console.log(chalk.white(`1. cd ${options.directory}`));
+    console.log(chalk.white('2. npm install'));
+    console.log(chalk.white('3. npx playwright install'));
+    console.log(chalk.white('4. npm test'));
+    
+    if (options.jenkins) {
+      console.log(chalk.yellow('\n🔧 Jenkins pipeline created! Import your repo into Jenkins and run the pipeline.'));
+    }
+    
   } catch (error) {
-    console.error(chalk.red('❌ Error generating project:'), error.message);
+    console.error(chalk.red('❌ Smart setup failed:'), error.message);
+    console.log(chalk.yellow('\n💡 Try running `playwright-route-tester init` for manual setup'));
     process.exit(1);
   }
 }
 
-async function processTemplate(templatePath, outputPath, config) {
-  await fs.ensureDir(path.dirname(outputPath));
-  
-  const template = await fs.readFile(templatePath, 'utf8');
-  const processed = template
-    .replace(/\{\{baseURL\}\}/g, config.baseURL)
-    .replace(/\{\{loginURL\}\}/g, config.loginURL);
+async function scanProject(options) {
+  try {
+    const scanner = new ProjectScanner();
+    const results = await scanner.scan();
     
-  await fs.writeFile(outputPath, processed);
-}
-
-async function generateRouteFiles(targetDir, config) {
-  const routesDir = path.join(targetDir, 'routes');
-  await fs.ensureDir(routesDir);
-
-  // Public routes
-  const publicRoutes = config.publicRoutes.map((route, index) => ({
-    url: route,
-    title: `Public Route ${index + 1}`,
-    expectedStatus: 200,
-    timeout: 10000,
-    keyElement: null
-  }));
-
-  await fs.writeFile(
-    path.join(routesDir, 'public-routes.js'),
-    `export const publicRoutes = ${JSON.stringify(publicRoutes, null, 2)};`
-  );
-
-  // Protected routes
-  const protectedRoutes = config.protectedRoutes.map((route, index) => ({
-    url: route,
-    title: `Protected Route ${index + 1}`,
-    requiresAuth: true,
-    expectedRedirect: config.loginURL
-  }));
-
-  await fs.writeFile(
-    path.join(routesDir, 'protected-routes.js'),
-    `export const protectedRoutes = ${JSON.stringify(protectedRoutes, null, 2)};`
-  );
-
-  // API routes (if requested)
-  if (config.apiRoutes) {
-    const apiRoutes = config.apiRoutes.map((route, index) => ({
-      url: route,
-      title: `API Route ${index + 1}`,
-      method: 'GET',
-      requiresAuth: true,
-      expectedStatus: 401 // Unauthorized when not authenticated
-    }));
-
-    await fs.writeFile(
-      path.join(routesDir, 'api-routes.js'),
-      `export const apiRoutes = ${JSON.stringify(apiRoutes, null, 2)};`
-    );
+    if (options.json) {
+      console.log(JSON.stringify(results, null, 2));
+    } else {
+      console.log(chalk.blue.bold('🔍 Project Scan Results\n'));
+      
+      console.log(chalk.green('Framework:'), `${results.framework.name} ${results.framework.version || ''}`);
+      console.log(chalk.green('Base URL:'), results.config.baseURL);
+      console.log(chalk.green('Login URL:'), results.config.loginURL);
+      
+      console.log(chalk.cyan('\n📊 Routes Found:'));
+      console.log(`  Public: ${results.routes.public.length}`);
+      console.log(`  Protected: ${results.routes.protected.length}`);
+      console.log(`  API: ${results.routes.api.length}`);
+      
+      if (results.routes.public.length > 0) {
+        console.log(chalk.white('\n🌐 Public Routes:'));
+        results.routes.public.forEach(route => {
+          console.log(`  ${route.url} - ${route.title}`);
+        });
+      }
+      
+      if (results.routes.protected.length > 0) {
+        console.log(chalk.white('\n🔒 Protected Routes:'));
+        results.routes.protected.forEach(route => {
+          console.log(`  ${route.url} - ${route.title}`);
+        });
+      }
+      
+      if (results.routes.api.length > 0) {
+        console.log(chalk.white('\n🔌 API Routes:'));
+        results.routes.api.forEach(route => {
+          console.log(`  ${route.method || 'GET'} ${route.url} - ${route.title}`);
+        });
+      }
+    }
+  } catch (error) {
+    console.error(chalk.red('❌ Scan failed:'), error.message);
+    process.exit(1);
   }
 }
 
-async function generateTestFiles(targetDir, config, isBare = false) {
-  const testsDir = path.join(targetDir, 'tests');
-  await fs.ensureDir(testsDir);
+async function interactiveSetup(scanResults) {
+  const prompts = [];
   
-  const templatesDir = path.join(__dirname, '../templates');
-
-  if (isBare) {
-    // Use bare templates with direct processing
-    await processTemplate(
-      path.join(templatesDir, 'tests/bare.public-routes.spec.js.template'),
-      path.join(testsDir, 'public-routes.spec.js'),
-      config
-    );
-
-    await processTemplate(
-      path.join(templatesDir, 'tests/bare.auth-redirect.spec.js.template'),
-      path.join(testsDir, 'auth-redirect.spec.js'),
-      config
-    );
-
-    if (config.apiRoutes) {
-      await processTemplate(
-        path.join(templatesDir, 'tests/bare.api-routes.spec.js.template'),
-        path.join(testsDir, 'api-routes.spec.js'),
-        config
-      );
+  // Base URL prompt with smart default
+  prompts.push({
+    type: 'input',
+    name: 'baseURL',
+    message: 'What is your application base URL?',
+    default: scanResults?.config?.baseURL || 'http://localhost:3000',
+    validate: (input) => {
+      try {
+        new URL(input);
+        return true;
+      } catch {
+        return 'Please enter a valid URL';
+      }
     }
+  });
+  
+  // Login URL with smart default
+  prompts.push({
+    type: 'input',
+    name: 'loginURL',
+    message: 'What is your login page URL?',
+    default: scanResults?.config?.loginURL || '/login'
+  });
+  
+  // Confirm detected routes or enter manually
+  if (scanResults && scanResults.routes.public.length > 0) {
+    prompts.push({
+      type: 'confirm',
+      name: 'useDetectedRoutes',
+      message: `Use detected routes? (${scanResults.routes.public.length} public, ${scanResults.routes.protected.length} protected, ${scanResults.routes.api.length} API)`,
+      default: true
+    });
   } else {
-    // Copy test templates (original behavior)
-    await fs.copy(
-      path.join(templatesDir, 'tests/public-routes.spec.js.template'),
-      path.join(testsDir, 'public-routes.spec.js')
-    );
-
-    await fs.copy(
-      path.join(templatesDir, 'tests/auth-redirect.spec.js.template'),
-      path.join(testsDir, 'auth-redirect.spec.js')
-    );
-
-    if (config.apiRoutes) {
-      await fs.copy(
-        path.join(templatesDir, 'tests/api-routes.spec.js.template'),
-        path.join(testsDir, 'api-routes.spec.js')
-      );
+    prompts.push({ type: 'input', name: 'useDetectedRoutes', default: false, when: () => false });
+  }
+  
+  const answers = await inquirer.prompt(prompts);
+  
+  if (answers.useDetectedRoutes) {
+    return {
+      baseURL: answers.baseURL,
+      loginURL: answers.loginURL,
+      routes: scanResults.routes,
+      framework: scanResults.framework,
+      includeAPI: scanResults.routes.api.length > 0
+    };
+  } else {
+    // Manual route entry
+    const manualPrompts = [
+      {
+        type: 'confirm',
+        name: 'includeAPI',
+        message: 'Include API route testing?',
+        default: true
+      },
+      {
+        type: 'input',
+        name: 'publicRoutes',
+        message: 'Enter public routes (comma-separated):',
+        default: '/, /about, /contact',
+        filter: (input) => input.split(',').map(route => route.trim())
+      },
+      {
+        type: 'input',
+        name: 'protectedRoutes',
+        message: 'Enter protected routes (comma-separated):',
+        default: '/dashboard, /profile, /settings',
+        filter: (input) => input.split(',').map(route => route.trim())
+      }
+    ];
+    
+    const manualAnswers = await inquirer.prompt(manualPrompts);
+    
+    if (manualAnswers.includeAPI) {
+      const apiAnswers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'apiRoutes',
+          message: 'Enter API routes (comma-separated):',
+          default: '/api/users, /api/products',
+          filter: (input) => input.split(',').map(route => route.trim())
+        }
+      ]);
+      manualAnswers.apiRoutes = apiAnswers.apiRoutes;
     }
+    
+    return {
+      baseURL: answers.baseURL,
+      loginURL: answers.loginURL,
+      includeAPI: manualAnswers.includeAPI,
+      routes: {
+        public: manualAnswers.publicRoutes.map(url => ({ url, title: generateRouteTitle(url) })),
+        protected: manualAnswers.protectedRoutes.map(url => ({ url, title: generateRouteTitle(url), requiresAuth: true })),
+        api: manualAnswers.apiRoutes ? manualAnswers.apiRoutes.map(url => ({ url, title: generateRouteTitle(url), method: 'GET' })) : []
+      },
+      framework: scanResults?.framework || { name: 'unknown' }
+    };
   }
 }
 
-async function generateTestPackageJson(targetDir, isBare = false) {
-  const packageJson = {
-    name: "playwright-route-tests",
-    version: "1.0.0",
-    description: "Generated Playwright route tests",
-    type: "module",
-    scripts: {
-      "test": "playwright test",
-      "test:headed": "playwright test --headed",
-      "test:debug": "playwright test --debug",
-      "report": "playwright show-report"
-    },
-    dependencies: {
-      "@playwright/test": "^1.37.0"
+async function generateSmartProject(targetDir, config, isBare = false) {
+  try {
+    console.log(chalk.yellow(`📁 Creating project in ${targetDir}...\n`));
+
+    const templateEngine = new TemplateEngine();
+    
+    const templateConfig = {
+      framework: config.framework,
+      routes: config.routes,
+      baseURL: config.baseURL,
+      loginURL: config.loginURL,
+      bare: isBare,
+      features: config.features || {},
+      projectPath: config.projectPath || process.cwd()
+    };
+    
+    const result = await templateEngine.generateProject(templateConfig, targetDir);
+    
+    if (result.success) {
+      console.log(chalk.green.bold('✅ Project setup complete!\n'));
+      
+      if (isBare) {
+        console.log(chalk.cyan('Smart setup created with:'));
+        console.log(chalk.white(`• ${config.routes.public.length} public route tests`));
+        console.log(chalk.white(`• ${config.routes.protected.length} protected route tests`));
+        console.log(chalk.white(`• ${config.routes.api.length} API route tests`));
+        console.log(chalk.white(`• ${config.framework.name} framework optimizations`));
+        
+        console.log(chalk.yellow('\nSetup:'));
+        console.log(chalk.white(`1. cd ${targetDir} && npm install && npx playwright install`));
+        console.log(chalk.yellow('\nRun tests:'));
+        console.log(chalk.white(`npm test`));
+        
+        if (config.framework.name !== 'unknown') {
+          console.log(chalk.cyan(`\n🎯 Framework-specific features enabled for ${config.framework.name}`));
+        }
+      } else {
+        console.log(chalk.cyan('Interactive setup completed with:'));
+        console.log(chalk.white(`• Custom route configuration`));
+        console.log(chalk.white(`• ${config.framework.name} framework support`));
+        
+        console.log(chalk.yellow('\nNext steps:'));
+        console.log(chalk.white(`1. cd ${targetDir}`));
+        console.log(chalk.white('2. npm install'));
+        console.log(chalk.white('3. npx playwright install'));
+        console.log(chalk.white('4. npm test'));
+      }
+    } else {
+      throw new Error('Template generation failed');
     }
-  };
 
-  await fs.writeFile(
-    path.join(targetDir, 'package.json'),
-    JSON.stringify(packageJson, null, 2)
-  );
+  } catch (error) {
+    console.error(chalk.red('❌ Error generating project:'), error.message);
+    if (error.stack) {
+      console.log(chalk.gray('Stack trace:'), error.stack);
+    }
+    process.exit(1);
+  }
 }
 
+async function generateJenkinsConfig(config) {
+  try {
+    console.log(chalk.yellow('🔧 Generating Jenkins pipeline configuration...'));
+    
+    const templateEngine = new TemplateEngine();
+    
+    const jenkinsConfig = {
+      framework: config.framework,
+      baseURL: config.baseURL,
+      loginURL: config.loginURL,
+      routes: config.routes,
+      features: config.features,
+      projectPath: config.projectPath
+    };
+    
+    const pipelineContent = await templateEngine.generateJenkinsConfig(jenkinsConfig);
+    
+    const jenkinsfilePath = path.join(config.projectPath || process.cwd(), 'Jenkinsfile');
+    await fs.writeFile(jenkinsfilePath, pipelineContent);
+    
+    console.log(chalk.green('✅ Jenkins pipeline created at'), jenkinsfilePath);
+  } catch (error) {
+    console.error(chalk.red('❌ Failed to generate Jenkins config:'), error.message);
+  }
+}
+
+function generateRouteTitle(url) {
+  if (url === '/') return 'Home Page';
+  
+  return url
+    .split('/')
+    .filter(Boolean)
+    .map(segment => {
+      if (segment.startsWith(':')) {
+        return segment.substring(1).charAt(0).toUpperCase() + segment.substring(2);
+      }
+      return segment.charAt(0).toUpperCase() + segment.slice(1);
+    })
+    .join(' ') + ' Page';
+}
+
+// Utility function to check if a directory exists and has contents
+async function directoryHasContents(dirPath) {
+  try {
+    const stats = await fs.stat(dirPath);
+    if (!stats.isDirectory()) return false;
+    
+    const contents = await fs.readdir(dirPath);
+    return contents.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Enhanced add-route command implementation
 async function addRoute(type, url, name) {
-  // Implementation for adding routes to existing configuration
-  console.log(chalk.blue(`Adding ${type} route: ${url} (${name})`));
-  // This would modify existing route files
+  try {
+    console.log(chalk.blue(`📝 Adding ${type} route: ${url} (${name})`));
+    
+    const testsDir = './playwright-tests';
+    if (!await fs.pathExists(testsDir)) {
+      console.error(chalk.red('❌ No existing test project found. Run setup first.'));
+      process.exit(1);
+    }
+    
+    const routeData = {
+      url,
+      title: name,
+      ...(type === 'protected' && { requiresAuth: true, expectedRedirect: '/login' }),
+      ...(type === 'api' && { method: 'GET', requiresAuth: true, expectedStatus: 401 })
+    };
+    
+    const routeFilePath = path.join(testsDir, 'routes', `${type}-routes.js`);
+    
+    if (await fs.pathExists(routeFilePath)) {
+      const content = await fs.readFile(routeFilePath, 'utf8');
+      const routesMatch = content.match(/export const \w+Routes = (\[[\s\S]*\]);/);
+      
+      if (routesMatch) {
+        const routes = JSON.parse(routesMatch[1]);
+        routes.push(routeData);
+        
+        const newContent = content.replace(
+          routesMatch[0],
+          `export const ${type}Routes = ${JSON.stringify(routes, null, 2)};`
+        );
+        
+        await fs.writeFile(routeFilePath, newContent);
+        console.log(chalk.green(`✅ Added ${type} route to ${routeFilePath}`));
+      }
+    } else {
+      console.log(chalk.yellow(`⚠️  Route file not found: ${routeFilePath}`));
+    }
+    
+  } catch (error) {
+    console.error(chalk.red('❌ Failed to add route:'), error.message);
+    process.exit(1);
+  }
 }
+
+// Add Jenkins pipeline generation command
+program
+  .command('jenkins')
+  .description('🔧 Generate Jenkins pipeline configuration')
+  .option('--framework <name>', 'Specify framework (nextjs, react, express)')
+  .action(async (options) => {
+    try {
+      const scanner = new ProjectScanner();
+      const scanResults = await scanner.scan();
+      
+      const config = {
+        framework: options.framework ? { name: options.framework } : scanResults.framework,
+        baseURL: scanResults.config.baseURL,
+        loginURL: scanResults.config.loginURL,
+        routes: scanResults.routes,
+        features: { jenkins: true },
+        projectPath: process.cwd()
+      };
+      
+      await generateJenkinsConfig(config);
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to generate Jenkins config:'), error.message);
+      process.exit(1);
+    }
+  });
 
 program.parse();
+
+// Handle uncaught errors gracefully
+process.on('uncaughtException', (error) => {
+  console.error(chalk.red('💥 Uncaught Exception:'), error.message);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error(chalk.red('💥 Unhandled Rejection:'), reason);
+  process.exit(1);
+});

@@ -1,0 +1,143 @@
+{{#if bare}}
+// Simple redirect helper for bare mode
+export const isRedirectedToLogin = (url, loginUrl = '{{loginURL}}') => {
+  const urlLower = url.toLowerCase();
+  const loginLower = loginUrl.toLowerCase();
+  
+  return urlLower.includes(loginLower) || 
+         urlLower.includes('/login') || 
+         urlLower.includes('/signin') || 
+         urlLower.includes('/auth/');
+};
+{{else}}
+import { testConfig } from '../config/test-config.js';
+
+/**
+ * Helper function to check if a page has been redirected to login
+ * @param {import('@playwright/test').Page} page - Playwright page object
+ * @param {string} expectedLoginUrl - Expected login URL
+ * @returns {Promise<boolean>} True if redirected to login
+ */
+export async function isRedirectedToLogin(page, expectedLoginUrl = testConfig.loginURL) {
+  const currentUrl = page.url().toLowerCase();
+  const loginUrl = expectedLoginUrl.toLowerCase();
+  
+  // Check URL contains login path
+  const urlContainsLogin = currentUrl.includes(loginUrl) ||
+                          currentUrl.includes('/login') ||
+                          currentUrl.includes('/signin') ||
+                          currentUrl.includes('/auth/') ||
+                          currentUrl.includes('/authenticate');
+  
+  if (urlContainsLogin) {
+    return true;
+  }
+  
+  // Check for login form presence as secondary validation
+  const hasLoginForm = await page.evaluate(() => {
+    // Look for common login form indicators
+    const selectors = [
+      'input[type="password"]',
+      'input[name="password"]',
+      'input[name="username"]',
+      'input[name="email"]',
+      '[data-testid="login-form"]',
+      '[data-testid="password"]',
+      '.login-form',
+      '#login-form'
+    ];
+    
+    return selectors.some(selector => document.querySelector(selector) !== null);
+  });
+  
+  // Check for login-related text
+  const hasLoginText = await page.evaluate(() => {
+    const bodyText = document.body.textContent?.toLowerCase() || '';
+    const loginTexts = [
+      'sign in',
+      'log in',
+      'login',
+      'authenticate',
+      'enter your password',
+      'enter password'
+    ];
+    
+    return loginTexts.some(text => bodyText.includes(text));
+  });
+  
+  return hasLoginForm || hasLoginText;
+}
+
+/**
+ * Helper to attempt login with common selectors
+ * @param {import('@playwright/test').Page} page - Playwright page object
+ * @param {string} username - Username or email
+ * @param {string} password - Password
+ * @returns {Promise<boolean>} True if login attempt was made successfully
+ */
+export async function attemptLogin(page, username, password) {
+  try {
+    // Find and fill username field
+    const usernameField = await page.locator(testConfig.loginSelectors.join(', ')).first();
+    if (await usernameField.isVisible()) {
+      await usernameField.fill(username);
+    }
+    
+    // Find and fill password field
+    const passwordField = await page.locator(testConfig.passwordSelectors.join(', ')).first();
+    if (await passwordField.isVisible()) {
+      await passwordField.fill(password);
+    }
+    
+    // Find and click submit button
+    const submitButton = await page.locator(testConfig.submitSelectors.join(', ')).first();
+    if (await submitButton.isVisible()) {
+      await submitButton.click();
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.warn('Login attempt failed:', error.message);
+    return false;
+  }
+}
+
+{{#ifFramework "nextjs"}}
+/**
+ * Next.js specific helper to check for authentication redirect
+ */
+export async function checkNextjsAuth(page) {
+  // Wait for Next.js router to complete navigation
+  await page.waitForFunction(() => window.next?.router?.isReady !== false);
+  
+  // Check for Next.js specific authentication patterns
+  const hasNextAuth = await page.evaluate(() => {
+    return window.__NEXT_DATA__?.props?.pageProps?.session !== undefined;
+  });
+  
+  return hasNextAuth;
+}
+{{/ifFramework}}
+
+{{#ifFramework "express"}}
+/**
+ * Express specific helper to check for session-based authentication
+ */
+export async function checkExpressSession(page) {
+  // Check for common Express session indicators
+  const response = await page.evaluate(async () => {
+    try {
+      const res = await fetch('/api/auth/session', {
+        credentials: 'include'
+      });
+      return res.status;
+    } catch {
+      return null;
+    }
+  });
+  
+  return response === 200;
+}
+{{/ifFramework}}
+{{/if}}

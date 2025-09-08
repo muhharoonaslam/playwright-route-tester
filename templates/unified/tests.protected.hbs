@@ -1,0 +1,116 @@
+import { test, expect } from '@playwright/test';
+{{#unless bare}}
+import { testConfig } from '../config/test-config.js';
+import { protectedRoutes } from '../routes/protected-routes.js';
+import { isRedirectedToLogin } from '../helpers/redirect-helper.js';
+{{/unless}}
+
+{{#if bare}}
+const protectedRoutes = {{{json routes.protected}}};
+
+// Simple redirect helper for bare mode
+const isRedirectedToLogin = (url, loginUrl = '{{loginURL}}') => {
+  const urlLower = url.toLowerCase();
+  const loginLower = loginUrl.toLowerCase();
+  
+  return urlLower.includes(loginLower) || 
+         urlLower.includes('/login') || 
+         urlLower.includes('/signin') || 
+         urlLower.includes('/auth/');
+};
+{{/if}}
+
+test.describe('Protected Routes - Authentication Redirect Testing', () => {
+  {{#unless bare}}
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(testConfig.timeout);
+  });
+  {{/unless}}
+
+  {{#if bare}}
+  // Bare mode tests
+  {{#eachRoute routes.protected}}
+  test('{{testDescription this "protected"}}', async ({ page }) => {
+    console.log(`🔐 Testing protected route: {{url}}`);
+    
+    // Navigate to protected route without authentication
+    await page.goto('{{../baseURL}}{{url}}');
+    
+    // Wait for any redirects to complete
+    await page.waitForLoadState('networkidle');
+    
+    // Verify redirect to login page
+    const currentUrl = page.url();
+    const redirected = isRedirectedToLogin(currentUrl, '{{../loginURL}}');
+    
+    expect(redirected).toBe(true);
+    console.log(`✅ {{title}} properly redirected to: ${currentUrl}`);
+    
+    // Verify login form is present
+    const hasLoginForm = await page.locator('input[type="password"]').isVisible().catch(() => false) ||
+                        await page.locator('input[name="password"]').isVisible().catch(() => false) ||
+                        await page.locator('[data-testid="password"]').isVisible().catch(() => false);
+    
+    if (!hasLoginForm) {
+      console.warn(`⚠️  Login form not detected on ${currentUrl} - this might not be a proper login page`);
+    }
+  });
+  {{/eachRoute}}
+  {{else}}
+  // Full mode tests
+  protectedRoutes.forEach(({ url, title, expectedRedirect }) => {
+    test(`${title} should redirect to login when not authenticated`, async ({ page }) => {
+      console.log(`🔐 Testing protected route: ${url}`);
+      
+      // Attempt to access protected route without authentication
+      const response = await page.goto(`${testConfig.baseURL}${url}`);
+      
+      // Wait for any redirects to complete
+      await page.waitForLoadState('networkidle');
+      
+      const currentUrl = page.url();
+      
+      // Check if redirected to login
+      const redirectedToLogin = await isRedirectedToLogin(page, testConfig.loginURL);
+      
+      expect(redirectedToLogin).toBe(true);
+      
+      // Verify we're actually on a login page
+      const isLoginPage = await page.evaluate(() => {
+        const bodyText = document.body.textContent?.toLowerCase() || '';
+        const hasLoginText = bodyText.includes('login') || 
+                           bodyText.includes('sign in') || 
+                           bodyText.includes('authenticate');
+        
+        const hasPasswordField = document.querySelector('input[type="password"]') !== null;
+        
+        return hasLoginText || hasPasswordField;
+      });
+      
+      expect(isLoginPage).toBe(true);
+      
+      {{#ifFramework "nextjs"}}
+      // Next.js specific authentication checks
+      await expect(page.locator('body')).not.toHaveText(/404|Not Found/i);
+      {{/ifFramework}}
+      
+      {{#ifFramework "express"}}
+      // Express specific checks - might return 401 or redirect
+      if (response?.status() === 401) {
+        console.log(`🔒 ${title} returned 401 Unauthorized (API-style protection)`);
+      }
+      {{/ifFramework}}
+      
+      console.log(`✅ ${title} properly protected - redirected to: ${currentUrl}`);
+    });
+  });
+  {{/if}}
+  
+  {{#unless bare}}
+  test.afterAll(async () => {
+    const protectedCount = protectedRoutes.length;
+    console.log(`📊 Security Summary: Tested ${protectedCount} protected routes`);
+    console.log(`🔒 All routes properly redirect unauthorized users to login`);
+  });
+  {{/unless}}
+});

@@ -1,0 +1,100 @@
+export const testConfig = {
+  baseURL: '{{baseURL}}',
+  loginURL: '{{loginURL}}',
+  timeout: 30000,
+  
+  // Framework-specific configuration
+  {{#ifFramework "nextjs"}}
+  framework: 'nextjs',
+  {{#if framework.hasAppRouter}}
+  routerType: 'app',
+  {{else}}
+  {{#if framework.hasPagesRouter}}
+  routerType: 'pages',
+  {{else}}
+  routerType: 'unknown',
+  {{/if}}
+  {{/if}}
+  {{/ifFramework}}
+  {{#ifFramework "express"}}
+  framework: 'express',
+  apiPrefix: '/api',
+  {{/ifFramework}}
+  {{#ifFramework "react"}}
+  framework: 'react',
+  {{#if framework.routerType}}
+  routerType: '{{framework.routerType}}',
+  {{/if}}
+  {{/ifFramework}}
+  
+  // Login form selectors (will be tried in order)
+  loginSelectors: [
+    'input[name="username"]',
+    'input[name="email"]', 
+    'input[type="email"]',
+    'input[type="text"]',
+    '#login-form input[type="text"]',
+    '#login-form input[type="email"]',
+    '.login-container input[type="text"]',
+    '.login-container input[type="email"]',
+    '[data-testid="login-form"] input',
+    '[data-testid="username"]',
+    '[data-testid="email"]'
+  ],
+  
+  // Password selectors
+  passwordSelectors: [
+    'input[name="password"]',
+    'input[type="password"]',
+    '#login-form input[type="password"]',
+    '.login-container input[type="password"]',
+    '[data-testid="login-form"] input[type="password"]',
+    '[data-testid="password"]'
+  ],
+  
+  // Submit button selectors
+  submitSelectors: [
+    'button[type="submit"]',
+    'input[type="submit"]',
+    '#login-form button',
+    '.login-container button',
+    '[data-testid="login-submit"]',
+    'button:has-text("Login")',
+    'button:has-text("Sign In")',
+    'button:has-text("Log In")'
+  ],
+  
+  // Default headers for API requests
+  defaultHeaders: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'User-Agent': 'PlaywrightRouteTester/{{version}}'
+  },
+  
+  // Test configuration
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 2 : undefined,
+  
+  // Screenshots and videos
+  screenshot: 'only-on-failure',
+  video: 'retain-on-failure',
+  trace: 'retain-on-failure',
+  
+  {{#if bare}}
+  // Bare mode - simplified configuration
+  mode: 'bare',
+  {{else}}
+  // Full mode - complete configuration
+  mode: 'full',
+  {{/if}}
+  
+  // Generated at
+  generatedAt: '{{generatedAt}}',
+  
+  // Route counts for reporting
+  routeCounts: {
+    public: {{routes.public.length}},
+    protected: {{routes.protected.length}},
+    api: {{routes.api.length}}
+  }
+};
