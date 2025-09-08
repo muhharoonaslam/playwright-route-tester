@@ -57,16 +57,25 @@ export class NextjsFramework {
     // Find all route files (API routes)
     const routeFiles = await glob('**/route.{js,jsx,ts,tsx}', { cwd: appDir });
     
+    console.log('📁 App Router - Found page files:', pageFiles);
+    console.log('📁 App Router - Found route files:', routeFiles);
+    
     // Process page files
     for (const file of pageFiles) {
+      console.log(`Processing page file: ${file}`);
+      
+      // Convert file path to URL path
       const routePath = this.convertAppRouterPathToUrl(file);
+      console.log(`  → Converted to route: ${routePath}`);
+      
       const isProtected = this.isProtectedRoute(routePath);
       
       const route = {
         url: routePath,
         title: this.generateRouteTitle(routePath),
         file: path.join(appDir, file),
-        type: 'page'
+        type: 'page',
+        framework: 'nextjs'
       };
       
       if (isProtected) {
@@ -85,7 +94,10 @@ export class NextjsFramework {
     
     // Process API route files
     for (const file of routeFiles) {
+      console.log(`Processing API route file: ${file}`);
+      
       const routePath = this.convertAppRouterPathToUrl(file);
+      console.log(`  → Converted to API route: ${routePath}`);
       
       routes.api.push({
         url: routePath,
@@ -93,6 +105,7 @@ export class NextjsFramework {
         method: 'GET', // Default, could be enhanced to detect actual methods
         file: path.join(appDir, file),
         type: 'api',
+        framework: 'nextjs',
         requiresAuth: true,
         expectedStatus: 401
       });
@@ -151,13 +164,45 @@ export class NextjsFramework {
   }
 
   convertAppRouterPathToUrl(filePath) {
-    return '/' + filePath
-      .replace(/\/(page|route)\.(js|jsx|ts|tsx)$/, '') // Remove page/route files
-      .replace(/\(.*?\)/g, '') // Remove route groups like (auth)
-      .replace(/\[\.\.\.(\w+)\]/g, '*') // Convert [...slug] to *
-      .replace(/\[(\w+)\]/g, ':$1') // Convert [id] to :id
-      .replace(/\/+/g, '/') // Clean up multiple slashes
-      .replace(/\/$/, '') || '/'; // Remove trailing slash except for root
+    console.log(`Converting file path: "${filePath}"`);
+    
+    // Start with the file path
+    let url = filePath;
+    
+    // Remove the page.tsx or route.tsx file name (handle both with and without leading slash)
+    url = url.replace(/^(page|route)\.(js|jsx|ts|tsx)$/, '');
+    url = url.replace(/\/(page|route)\.(js|jsx|ts|tsx)$/, '');
+    
+    // Remove route groups like (auth), (dashboard)
+    url = url.replace(/\(.*?\)/g, '');
+    
+    // Convert [...slug] to * (catch-all routes)
+    url = url.replace(/\[\.\.\.(\w+)\]/g, '*');
+    
+    // Convert [id] to :id (dynamic routes)
+    url = url.replace(/\[(\w+)\]/g, ':$1');
+    
+    // Clean up multiple slashes
+    url = url.replace(/\/+/g, '/');
+    
+    // Handle empty string or root case first
+    if (!url || url === '') {
+      url = '/';
+    } else {
+      // Add leading slash if needed
+      if (!url.startsWith('/')) {
+        url = '/' + url;
+      }
+      
+      // Remove trailing slash except for root
+      if (url !== '/' && url.endsWith('/')) {
+        url = url.slice(0, -1);
+      }
+    }
+    
+    console.log(`  → Final URL: "${url}"`);
+    
+    return url;
   }
 
   convertPagesRouterPathToUrl(filePath) {

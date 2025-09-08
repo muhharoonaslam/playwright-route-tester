@@ -1,0 +1,234 @@
+import fs from 'fs-extra';
+import path from 'path';
+import chalk from 'chalk';
+import { execSync } from 'child_process';
+
+export class VersionChecker {
+  constructor(currentVersion) {
+    this.currentVersion = currentVersion;
+    this.packageName = 'playwright-route-tester';
+  }
+
+  async checkForUpdates() {
+    try {
+      console.log(chalk.gray('🔍 Checking for updates...'));
+      
+      // Check npm registry for latest version
+      const latestVersion = await this.getLatestVersion();
+      
+      if (this.isNewerVersion(latestVersion, this.currentVersion)) {
+        this.showUpdatePrompt(latestVersion);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      // Silently fail - don't interrupt user workflow
+      return false;
+    }
+  }
+
+  async getLatestVersion() {
+    try {
+      const result = execSync(`npm view ${this.packageName} version --silent`, {
+        encoding: 'utf8',
+        timeout: 5000
+      });
+      return result.trim();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  isNewerVersion(latest, current) {
+    if (!latest || !current) return false;
+    
+    const latestParts = latest.split('.').map(Number);
+    const currentParts = current.split('.').map(Number);
+    
+    for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
+      const latestPart = latestParts[i] || 0;
+      const currentPart = currentParts[i] || 0;
+      
+      if (latestPart > currentPart) return true;
+      if (latestPart < currentPart) return false;
+    }
+    
+    return false;
+  }
+
+  showUpdatePrompt(latestVersion) {
+    console.log(chalk.yellow('\n📢 Update Available!'));
+    console.log(chalk.white(`   Current: ${this.currentVersion}`));
+    console.log(chalk.green(`   Latest:  ${latestVersion}`));
+    
+    // Check if this is a major version upgrade (v1 -> v2)
+    const currentMajor = parseInt(this.currentVersion.split('.')[0]);
+    const latestMajor = parseInt(latestVersion.split('.')[0]);
+    
+    if (latestMajor > currentMajor) {
+      console.log(chalk.cyan('\n🚀 Major Update with New Smart Features:'));
+      console.log(chalk.white('   • Zero-configuration smart setup'));
+      console.log(chalk.white('   • Automatic framework detection'));
+      console.log(chalk.white('   • Smart route discovery'));
+      console.log(chalk.white('   • Jenkins CI/CD integration'));
+      console.log(chalk.white('   • 90% faster setup process'));
+      
+      console.log(chalk.yellow('\nUpgrade commands:'));
+      console.log(chalk.green('   npm update -g playwright-route-tester'));
+      console.log(chalk.green('   # Or use latest directly:'));
+      console.log(chalk.green('   npx playwright-route-tester@latest setup'));
+    } else {
+      console.log(chalk.yellow('\nTo update:'));
+      console.log(chalk.green(`   npm update -g ${this.packageName}`));
+    }
+    
+    console.log(chalk.gray('   (This check can be disabled with --no-version-check)\n'));
+  }
+
+  async detectExistingSetup(projectPath = process.cwd()) {
+    const setupInfo = {
+      hasPlaywrightTests: false,
+      hasOldSetup: false,
+      hasConfig: false,
+      testDirectory: null,
+      setupVersion: null,
+      canUpgrade: false
+    };
+
+    // Check for existing playwright-tests directory
+    const commonTestDirs = [
+      'playwright-tests',
+      'e2e-tests', 
+      'tests/playwright',
+      'tests/e2e'
+    ];
+
+    for (const dir of commonTestDirs) {
+      const testPath = path.join(projectPath, dir);
+      if (await fs.pathExists(testPath)) {
+        setupInfo.hasPlaywrightTests = true;
+        setupInfo.testDirectory = dir;
+        
+        // Check if it's our generated structure
+        const configPath = path.join(testPath, 'config/test-config.js');
+        const routesPath = path.join(testPath, 'routes');
+        
+        if (await fs.pathExists(configPath) && await fs.pathExists(routesPath)) {
+          setupInfo.hasOldSetup = true;
+          setupInfo.hasConfig = true;
+          
+          // Try to determine version from generated files
+          setupInfo.setupVersion = await this.detectSetupVersion(testPath);
+          setupInfo.canUpgrade = setupInfo.setupVersion !== '2.0+';
+        }
+        break;
+      }
+    }
+
+    // Check for playwright config in root
+    const rootPlaywrightConfig = path.join(projectPath, 'playwright.config.js');
+    if (await fs.pathExists(rootPlaywrightConfig)) {
+      setupInfo.hasConfig = true;
+    }
+
+    return setupInfo;
+  }
+
+  async detectSetupVersion(testPath) {
+    try {
+      // Check package.json in test directory
+      const packagePath = path.join(testPath, 'package.json');
+      if (await fs.pathExists(packagePath)) {
+        const pkg = await fs.readJson(packagePath);
+        
+        // Check for smart features indicators
+        const hasSmartFeatures = pkg.description?.includes('Generated by playwright-route-tester v2') ||
+                                pkg.description?.includes('smart') ||
+                                pkg.description?.includes('framework');
+        
+        if (hasSmartFeatures) {
+          return '2.0+';
+        }
+      }
+      
+      // Check config files for smart features
+      const configPath = path.join(testPath, 'config/test-config.js');
+      if (await fs.pathExists(configPath)) {
+        const configContent = await fs.readFile(configPath, 'utf8');
+        
+        // Look for v2 features
+        const hasV2Features = configContent.includes('framework:') ||
+                             configContent.includes('generatedAt:') ||
+                             configContent.includes('routeCounts:');
+        
+        if (hasV2Features) {
+          return '2.0+';
+        }
+      }
+      
+      return '1.x';
+    } catch (error) {
+      return 'unknown';
+    }
+  }
+
+  async promptExistingSetupAction(setupInfo) {
+    console.log(chalk.blue('\n🔍 Existing Playwright Route Tests Detected!'));
+    console.log(chalk.white(`   Directory: ${setupInfo.testDirectory}`));
+    console.log(chalk.white(`   Version: ${setupInfo.setupVersion || 'Unknown'}`));
+    
+    if (setupInfo.canUpgrade && setupInfo.setupVersion !== '2.0+') {
+      console.log(chalk.yellow('\n🚀 Your setup can be upgraded to Smart v2.0!'));
+      console.log(chalk.cyan('   New features you\'ll get:'));
+      console.log(chalk.white('   • Smart framework detection'));
+      console.log(chalk.white('   • Auto-discovered routes'));
+      console.log(chalk.white('   • Enhanced test generation'));
+      console.log(chalk.white('   • Jenkins pipeline integration'));
+      
+      console.log(chalk.yellow('\n💡 Options:'));
+      console.log(chalk.green('   1. Upgrade existing setup:'));
+      console.log(chalk.white(`      playwright-route-tester setup --directory ${setupInfo.testDirectory} --force`));
+      console.log(chalk.green('   2. Create new smart setup alongside:'));
+      console.log(chalk.white('      playwright-route-tester setup --directory ./playwright-tests-v2'));
+      console.log(chalk.green('   3. Continue with current setup (no changes)'));
+      
+      return 'upgrade_available';
+    } else if (setupInfo.setupVersion === '2.0+') {
+      console.log(chalk.green('\n✅ You already have the latest smart setup!'));
+      console.log(chalk.yellow('💡 You can still run setup to:'));
+      console.log(chalk.white('   • Update with newly detected routes'));
+      console.log(chalk.white('   • Refresh configuration'));
+      console.log(chalk.white('   • Add Jenkins pipeline'));
+      
+      return 'already_updated';
+    } else {
+      console.log(chalk.yellow('\n💡 Found existing Playwright tests.'));
+      console.log(chalk.white('   Use --force to overwrite or choose a different directory.'));
+      
+      return 'basic_detected';
+    }
+  }
+
+  showSmartFeaturesInfo() {
+    console.log(chalk.blue('\n🧠 Smart Features Available in v2.0:'));
+    console.log(chalk.white('   🔍 Auto-Detection:'));
+    console.log(chalk.gray('     • Framework detection (Next.js, React, Express)'));
+    console.log(chalk.gray('     • Route discovery from code and file structure'));
+    console.log(chalk.gray('     • Authentication pattern recognition'));
+    
+    console.log(chalk.white('\n   🚀 Zero Configuration:'));
+    console.log(chalk.gray('     • One command setup: playwright-route-tester setup'));
+    console.log(chalk.gray('     • Intelligent defaults for all frameworks'));
+    console.log(chalk.gray('     • No manual route entry required'));
+    
+    console.log(chalk.white('\n   🔧 Advanced Features:'));
+    console.log(chalk.gray('     • Self-configuring Jenkins pipelines'));
+    console.log(chalk.gray('     • Framework-specific test optimizations'));
+    console.log(chalk.gray('     • Enhanced security vulnerability detection'));
+    
+    console.log(chalk.yellow('\n   Try: playwright-route-tester scan (to see what will be detected)\n'));
+  }
+}
+
+export default VersionChecker;

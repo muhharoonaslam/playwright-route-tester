@@ -100,33 +100,91 @@ export class ReactFramework {
   extractRoutesFromFile(content, filename) {
     const routes = [];
     
-    // React Router patterns
+    console.log(`🔍 React - Extracting routes from: ${filename}`);
+    
+    // Enhanced React Router patterns with better matching
     const routePatterns = [
-      // <Route path="/path" ... />
-      /<Route[^>]*path=["']([^"']+)["'][^>]*>/g,
-      // <Route path="/path">
-      /<Route[^>]*path=["']([^"']+)["'][^>]*>/g,
+      // <Route path="/path" ... /> or <Route path="/path">
+      /<Route[^>]*path\s*=\s*["']([^"']+)["'][^>]*>/gi,
       // Route object: { path: "/path" }
-      /{\s*path:\s*["']([^"']+)["']/g,
-      // createBrowserRouter paths
-      /path:\s*["']([^"']+)["']/g
+      /{\s*path\s*:\s*["']([^"']+)["']/gi,
+      // createBrowserRouter/createHashRouter paths
+      /path\s*:\s*["']([^"']+)["']/gi,
+      // Route definitions in arrays
+      /{\s*path\s*:\s*["']([^"']+)["'][^}]*}/gi,
+      // Navigate and Link to paths
+      /<(?:Navigate|Link)[^>]*to\s*=\s*["']([^"']+)["'][^>]*>/gi,
+      // useNavigate("/path")
+      /navigate\s*\(\s*["']([^"']+)["']\s*\)/gi
     ];
     
     for (const pattern of routePatterns) {
       let match;
+      pattern.lastIndex = 0; // Reset regex state
       while ((match = pattern.exec(content)) !== null) {
-        const routePath = match[1];
+        const routePath = this.normalizeReactRoutePath(match[1]);
         
-        routes.push({
-          url: routePath,
-          title: this.generateRouteTitle(routePath),
-          file: filename,
-          component: this.extractComponentName(content, routePath)
-        });
+        // Skip invalid or duplicate routes
+        if (!routePath || routePath.startsWith('http') || routePath.startsWith('#')) {
+          continue;
+        }
+        
+        const existingRoute = routes.find(r => r.url === routePath);
+        if (!existingRoute) {
+          console.log(`  ✅ Found route: ${routePath}`);
+          
+          routes.push({
+            url: routePath,
+            title: this.generateRouteTitle(routePath),
+            file: filename,
+            component: this.extractComponentName(content, routePath),
+            framework: 'react'
+          });
+        }
       }
     }
     
+    console.log(`  → Total routes found: ${routes.length}`);
     return routes;
+  }
+
+  normalizeReactRoutePath(routePath) {
+    console.log(`  🔧 Normalizing React route: "${routePath}"`);
+    
+    // Start with the original path
+    let url = routePath;
+    
+    // Handle empty or invalid paths
+    if (!url || typeof url !== 'string') {
+      return null;
+    }
+    
+    // Convert React Router dynamic segments
+    url = url.replace(/:\w+/g, (match) => `:${match.substring(1)}`); // Ensure colon prefix
+    
+    // Handle wildcard routes
+    url = url.replace(/\*$/, '*'); // Keep trailing wildcards
+    
+    // Clean up multiple slashes
+    url = url.replace(/\/+/g, '/');
+    
+    // Add leading slash if missing
+    if (!url.startsWith('/')) {
+      url = '/' + url;
+    }
+    
+    // Remove trailing slash except for root
+    if (url !== '/' && url.endsWith('/')) {
+      url = url.slice(0, -1);
+    }
+    
+    // Handle root route
+    if (!url || url === '//') {
+      url = '/';
+    }
+    
+    console.log(`    → Normalized to: "${url}"`);
+    return url;
   }
 
   extractComponentName(content, routePath) {

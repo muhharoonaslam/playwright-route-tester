@@ -13,6 +13,7 @@ import { TemplateEngine } from './core/templates/engine.js';
 import { NextjsFramework } from './core/frameworks/nextjs.js';
 import { ReactFramework } from './core/frameworks/react.js';
 import { ExpressFramework } from './core/frameworks/express.js';
+import { VersionChecker } from './core/version-checker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,21 @@ const __dirname = path.dirname(__filename);
 // Show banner on startup
 console.log(chalk.blue.bold('\n🎭 Playwright Route Tester'));
 console.log(chalk.gray('Smart test generation for web applications\n'));
+
+// Check if user is running old commands and provide guidance
+const args = process.argv.slice(2);
+if (args.length === 0 || (args[0] === 'init' && !args.includes('--scan'))) {
+  // Show smart features info for users who might be using old workflow
+  setTimeout(async () => {
+    const packageJsonPath = path.join(__dirname, '../package.json');
+    const packageJson = await fs.readJson(packageJsonPath).catch(() => ({ version: '2.0.0' }));
+    const versionChecker = new VersionChecker(packageJson.version);
+    
+    if (args.length === 0) {
+      versionChecker.showSmartFeaturesInfo();
+    }
+  }, 100);
+}
 
 const program = new Command();
 
@@ -73,6 +89,7 @@ program
   .option('-d, --directory <path>', 'Target directory', './playwright-tests')
   .option('--jenkins', 'Include Jenkins pipeline configuration')
   .option('--force', 'Overwrite existing files')
+  .option('--no-version-check', 'Skip version update check')
   .action(async (options) => {
     await smartSetup(options);
   });
@@ -95,6 +112,16 @@ program
   .option('--scan', 'Auto-scan project first, then prompt for confirmation')
   .action(async (options) => {
     console.log(chalk.blue.bold('🎭 Playwright Route Tester Setup\n'));
+    
+    // Show smart setup recommendation for new users
+    if (!options.scan && !options.bare) {
+      console.log(chalk.yellow('💡 New Smart Setup Available!'));
+      console.log(chalk.white('   For zero-configuration setup, try:'));
+      console.log(chalk.green('   playwright-route-tester setup'));
+      console.log(chalk.gray('   (Automatically detects your framework and routes)\n'));
+      
+      console.log(chalk.cyan('   Continuing with interactive setup...\n'));
+    }
     
     let scanResults = null;
     if (options.scan || !options.bare) {
@@ -187,6 +214,35 @@ program
 async function smartSetup(options) {
   try {
     console.log(chalk.blue.bold('🚀 Smart Playwright Route Tester Setup\n'));
+    
+    // Get current version from package.json
+    const packageJsonPath = path.join(__dirname, '../package.json');
+    const packageJson = await fs.readJson(packageJsonPath).catch(() => ({ version: '2.0.0' }));
+    const currentVersion = packageJson.version;
+    
+    // Check for updates (unless disabled)
+    if (!options.noVersionCheck) {
+      const versionChecker = new VersionChecker(currentVersion);
+      await versionChecker.checkForUpdates();
+    }
+    
+    // Check for existing setup
+    const versionChecker = new VersionChecker(currentVersion);
+    const existingSetup = await versionChecker.detectExistingSetup();
+    
+    if (existingSetup.hasPlaywrightTests && !options.force) {
+      const action = await versionChecker.promptExistingSetupAction(existingSetup);
+      
+      if (action === 'upgrade_available') {
+        console.log(chalk.yellow('\n⏳ Continuing with smart upgrade...'));
+      } else if (action === 'already_updated') {
+        console.log(chalk.cyan('\n🔄 Refreshing your smart setup...'));
+      } else if (action === 'basic_detected') {
+        console.log(chalk.yellow('\n💡 To overwrite existing setup, use --force flag'));
+        console.log(chalk.white(`   Example: playwright-route-tester setup --force\n`));
+        return;
+      }
+    }
     
     const scanner = new ProjectScanner();
     const scanResults = await scanner.scan();

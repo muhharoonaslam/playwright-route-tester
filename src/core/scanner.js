@@ -1,6 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { glob } from 'glob';
+import NextjsFramework from './frameworks/nextjs.js';
+import ReactFramework from './frameworks/react.js';
+import ExpressFramework from './frameworks/express.js';
 
 export class ProjectScanner {
   constructor(projectPath = process.cwd()) {
@@ -101,26 +104,43 @@ export class ProjectScanner {
   }
 
   async scanRoutes() {
+    console.log(`📁 Scanning routes for framework: ${this.framework.name}`);
+    
+    let frameworkInstance = null;
+    
     switch (this.framework.name) {
       case 'nextjs':
-        await this.scanNextjsRoutes();
+        frameworkInstance = new NextjsFramework(this.projectPath);
+        await frameworkInstance.detect();
+        this.routes = await frameworkInstance.scanRoutes();
         break;
+        
+      case 'react':
       case 'react-router':
-        await this.scanReactRouterRoutes();
+        frameworkInstance = new ReactFramework(this.projectPath);
+        frameworkInstance.routerType = this.framework.name === 'react-router' ? 'react-router-dom' : null;
+        await frameworkInstance.detect();
+        this.routes = await frameworkInstance.scanRoutes();
         break;
-      case 'vue-router':
-        await this.scanVueRouterRoutes();
-        break;
+        
       case 'express':
-        await this.scanExpressRoutes();
+        frameworkInstance = new ExpressFramework(this.projectPath);
+        await frameworkInstance.detect();
+        this.routes = await frameworkInstance.scanRoutes();
         break;
+        
+      case 'vue-router':
       case 'nuxt':
-        await this.scanNuxtRoutes();
+        // For now, use generic scanning until Vue framework is implemented
+        await this.scanGenericRoutes();
         break;
+        
       default:
         await this.scanGenericRoutes();
         break;
     }
+    
+    console.log(`✅ Found ${this.routes.public.length} public, ${this.routes.protected.length} protected, ${this.routes.api.length} API routes`);
   }
 
   async scanNextjsRoutes() {

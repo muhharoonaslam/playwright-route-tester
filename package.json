@@ -1,7 +1,7 @@
 {
   "name": "playwright-route-tester",
-  "version": "1.0.3",
-  "description": "A CLI tool to generate Playwright tests for route testing with authentication redirect validation",
+  "version": "2.0.0",
+  "description": "Intelligent CLI tool that automatically generates Playwright tests with smart framework detection, zero-configuration setup, and advanced route testing",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

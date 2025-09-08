@@ -75,47 +75,116 @@ export class ExpressFramework {
   extractExpressRoutes(content, filename) {
     const routes = [];
     
-    // Express route patterns
+    console.log(`🔍 Express - Extracting routes from: ${filename}`);
+    
+    // Enhanced Express route patterns with better matching
     const routePatterns = [
-      // app.get('/path', ...)
-      /(?:app|router)\.(get|post|put|patch|delete|use)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+      // app.method('/path', ...) - handles app, server, router variables
+      /(?:app|server|router|express)\s*\.\s*(get|post|put|patch|delete|use|all)\s*\(\s*['"`]([^'"`]+)['"`]/gi,
       // router.method('/path', ...)
-      /router\.(get|post|put|patch|delete|use)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-      // express.Router() patterns
-      /\.route\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*\.(get|post|put|patch|delete)/g
+      /(\w+)\s*\.\s*(get|post|put|patch|delete|use|all)\s*\(\s*['"`]([^'"`]+)['"`]/gi,
+      // .route('/path').method(...)
+      /\.route\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*\.\s*(get|post|put|patch|delete|all)/gi,
+      // Express router with chaining: router.route('/path').get().post()
+      /route\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/gi,
+      // app.use('/path', router) - mount points
+      /(?:app|server)\s*\.\s*use\s*\(\s*['"`]([^'"`]+)['"`]\s*,/gi
     ];
+    
+    const foundRoutes = new Set();
     
     for (const pattern of routePatterns) {
       let match;
+      pattern.lastIndex = 0; // Reset regex state
       while ((match = pattern.exec(content)) !== null) {
-        const method = match[1].toUpperCase();
-        const routePath = match[2] || match[1]; // Handle different capture groups
+        let method, routePath;
         
-        // Skip middleware routes
-        if (method === 'USE' && !routePath.startsWith('/api')) {
+        // Handle different capture group patterns
+        if (match.length === 4) {
+          // Pattern: variable.method('/path')
+          method = match[2];
+          routePath = match[3];
+        } else if (match.length === 3) {
+          // Pattern: app.method('/path') or route('/path').method
+          if (match[2]) {
+            method = match[2];
+            routePath = match[1];
+          } else {
+            method = match[1];
+            routePath = match[2];
+          }
+        }
+        
+        if (!routePath || !method) continue;
+        
+        method = method.toUpperCase();
+        const normalizedPath = this.normalizeExpressRoutePath(routePath);
+        
+        // Skip invalid paths and middleware that doesn't define routes
+        if (!normalizedPath || 
+            (method === 'USE' && !routePath.startsWith('/api') && !routePath.includes('/'))) {
           continue;
         }
         
-        routes.push({
-          url: this.normalizeRoutePath(routePath),
-          method: method === 'USE' ? 'GET' : method,
-          title: this.generateRouteTitle(routePath),
-          file: filename,
-          framework: 'express'
-        });
+        const routeKey = `${method}:${normalizedPath}`;
+        if (!foundRoutes.has(routeKey)) {
+          foundRoutes.add(routeKey);
+          console.log(`  ✅ Found route: ${method} ${normalizedPath}`);
+          
+          routes.push({
+            url: normalizedPath,
+            method: method === 'USE' ? 'GET' : method,
+            title: this.generateRouteTitle(normalizedPath),
+            file: filename,
+            framework: 'express'
+          });
+        }
       }
     }
     
+    console.log(`  → Total routes found: ${routes.length}`);
     return routes;
   }
 
-  normalizeRoutePath(routePath) {
-    // Convert Express route parameters to a standard format
-    return routePath
-      .replace(/:\w+/g, (match) => `:${match.substring(1)}`) // Ensure colon prefix
-      .replace(/\*/, '*') // Handle wildcards
-      .replace(/\/+/g, '/') // Clean up multiple slashes
-      .replace(/\/$/, '') || '/'; // Remove trailing slash except for root
+  normalizeExpressRoutePath(routePath) {
+    console.log(`  🔧 Normalizing Express route: "${routePath}"`);
+    
+    // Handle empty or invalid paths
+    if (!routePath || typeof routePath !== 'string') {
+      return null;
+    }
+    
+    // Start with the original path
+    let url = routePath;
+    
+    // Convert Express route parameters to standard format
+    url = url.replace(/:\w+/g, (match) => `:${match.substring(1)}`); // Ensure colon prefix
+    
+    // Handle Express wildcards and regex patterns
+    url = url.replace(/\*/, '*'); // Keep wildcards
+    url = url.replace(/\$.*$/, ''); // Remove regex end anchors
+    url = url.replace(/\^/, ''); // Remove regex start anchors
+    
+    // Clean up multiple slashes
+    url = url.replace(/\/+/g, '/');
+    
+    // Add leading slash if missing
+    if (!url.startsWith('/')) {
+      url = '/' + url;
+    }
+    
+    // Remove trailing slash except for root
+    if (url !== '/' && url.endsWith('/')) {
+      url = url.slice(0, -1);
+    }
+    
+    // Handle empty or root case
+    if (!url || url === '//') {
+      url = '/';
+    }
+    
+    console.log(`    → Normalized to: "${url}"`);
+    return url;
   }
 
   categorizeExpressRoute(route, routes) {
