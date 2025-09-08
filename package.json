@@ -1,6 +1,6 @@
 {
   "name": "playwright-route-tester",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A CLI tool to generate Playwright tests for route testing with authentication redirect validation",
   "type": "module",
   "main": "dist/index.js",
