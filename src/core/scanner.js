@@ -4,6 +4,7 @@ import { glob } from 'glob';
 import NextjsFramework from './frameworks/nextjs.js';
 import ReactFramework from './frameworks/react.js';
 import ExpressFramework from './frameworks/express.js';
+import ShopifyFramework from './frameworks/shopify.js';
 
 export class ProjectScanner {
   constructor(projectPath = process.cwd()) {
@@ -96,6 +97,22 @@ export class ProjectScanner {
       return;
     }
     
+    // Shopify App detection
+    if (deps['@shopify/polaris'] || deps['@shopify/app-bridge'] || deps['@shopify/cli'] || 
+        this.packageJson.scripts?.dev?.includes('shopify') || 
+        this.packageJson.scripts?.build?.includes('shopify') ||
+        await this.hasShopifyAppStructure()) {
+      this.framework = { 
+        name: 'shopify-app', 
+        version: deps['@shopify/cli'] || deps['@shopify/polaris'] || deps['@shopify/app-bridge'],
+        hasPolaris: !!deps['@shopify/polaris'],
+        hasAppBridge: !!deps['@shopify/app-bridge'],
+        hasCLI: !!deps['@shopify/cli']
+      };
+      console.log(`✅ Detected Shopify App (Polaris: ${this.framework.hasPolaris}, AppBridge: ${this.framework.hasAppBridge})`);
+      return;
+    }
+    
     // Vite + React detection
     if (deps.vite && deps.react) {
       this.framework = { name: 'vite-react', version: deps.vite, reactVersion: deps.react };
@@ -144,6 +161,26 @@ export class ProjectScanner {
     return await fs.pathExists(path.join(this.projectPath, 'pages'));
   }
 
+  async hasShopifyAppStructure() {
+    // Check for common Shopify app files/directories
+    const shopifyIndicators = [
+      'shopify.app.toml',
+      'shopify.web.toml', 
+      'web/frontend',
+      'web/backend',
+      'app/routes/webhooks',
+      'app/routes/app',
+      'extensions'
+    ];
+    
+    for (const indicator of shopifyIndicators) {
+      if (await fs.pathExists(path.join(this.projectPath, indicator))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async scanRoutes() {
     console.log(`📁 Scanning routes for framework: ${this.framework.name}`);
     
@@ -171,6 +208,13 @@ export class ProjectScanner {
         case 'express':
           console.log('🔍 Using Express framework scanner...');
           frameworkInstance = new ExpressFramework(this.projectPath);
+          await frameworkInstance.detect();
+          this.routes = await frameworkInstance.scanRoutes();
+          break;
+          
+        case 'shopify-app':
+          console.log('🔍 Using Shopify app framework scanner...');
+          frameworkInstance = new ShopifyFramework(this.projectPath);
           await frameworkInstance.detect();
           this.routes = await frameworkInstance.scanRoutes();
           break;

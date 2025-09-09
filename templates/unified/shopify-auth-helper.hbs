@@ -1,0 +1,101 @@
+/**
+ * Shopify App Authentication Helper
+ * Provides utilities for testing Shopify app authentication flows
+ */
+
+export async function isShopifyAuthRedirect(page, shopifyAuthURL = '/auth') {
+  const currentUrl = page.url();
+  const urlLower = currentUrl.toLowerCase();
+  
+  // Check for common Shopify auth redirects
+  return urlLower.includes(shopifyAuthURL.toLowerCase()) || 
+         urlLower.includes('/auth') ||
+         urlLower.includes('/install') ||
+         urlLower.includes('shopify.com/oauth') ||
+         urlLower.includes('myshopify.com');
+}
+
+export async function checkShopifyAppBridge(page) {
+  // Check if Shopify App Bridge is loaded
+  return await page.evaluate(() => {
+    return typeof window.shopify !== 'undefined' || 
+           typeof window.ShopifyApp !== 'undefined';
+  });
+}
+
+export async function waitForShopifyAuth(page, timeout = 10000) {
+  // Wait for Shopify authentication to complete or redirect
+  try {
+    await page.waitForFunction(
+      () => {
+        const url = window.location.href;
+        return !url.includes('/auth') && !url.includes('/install');
+      },
+      { timeout }
+    );
+    return true;
+  } catch (error) {
+    console.log('Shopify auth timeout - may be redirected to auth flow');
+    return false;
+  }
+}
+
+export async function checkForShopifyErrors(page) {
+  // Check for common Shopify app errors
+  const bodyText = await page.textContent('body').catch(() => '');
+  const hasError = bodyText.toLowerCase().includes('shopify app error') ||
+                  bodyText.toLowerCase().includes('app not installed') ||
+                  bodyText.toLowerCase().includes('invalid shop domain') ||
+                  bodyText.toLowerCase().includes('oauth error');
+                  
+  if (hasError) {
+    console.warn('⚠️ Shopify app error detected on page');
+  }
+  
+  return hasError;
+}
+
+export async function simulateShopifyWebhook(request, webhookURL, payload = {}) {
+  // Simulate a Shopify webhook request for testing
+  const shopifyHeaders = {
+    'X-Shopify-Topic': payload.topic || 'orders/create',
+    'X-Shopify-Shop-Domain': payload.shop || 'test-shop.myshopify.com',
+    'X-Shopify-Webhook-Id': payload.webhookId || 'test-webhook-id',
+    'Content-Type': 'application/json'
+  };
+
+  const webhookPayload = {
+    id: 12345,
+    shop_domain: payload.shop || 'test-shop.myshopify.com',
+    ...payload.data
+  };
+
+  return await request.post(webhookURL, {
+    headers: shopifyHeaders,
+    data: JSON.stringify(webhookPayload)
+  });
+}
+
+export function generateShopifyTestData() {
+  return {
+    shop: 'test-shop.myshopify.com',
+    order: {
+      id: 12345,
+      total_price: '10.00',
+      currency: 'USD',
+      email: 'test@example.com'
+    },
+    customer: {
+      id: 67890,
+      email: 'customer@example.com',
+      first_name: 'Test',
+      last_name: 'Customer'
+    },
+    product: {
+      id: 11111,
+      title: 'Test Product',
+      vendor: 'Test Vendor',
+      price: '10.00'
+    }
+  };
+}

@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import { testConfig } from '../config/test-config.js';
 import { protectedRoutes } from '../routes/protected-routes.js';
 import { isRedirectedToLogin } from '../helpers/redirect-helper.js';
+{{#ifFramework "shopify-app"}}
+import { isShopifyAuthRedirect, checkShopifyAppBridge } from '../helpers/shopify-auth-helper.js';
+{{/ifFramework}}
 
 test.describe('Protected Routes - Authentication Redirect Testing', () => {
   test.beforeEach(async ({ page }) => {
@@ -27,7 +30,11 @@ test.describe('Protected Routes - Authentication Redirect Testing', () => {
       const currentUrl = page.url();
       
       // Check if redirected to login
+      {{#ifFramework "shopify-app"}}
+      const redirectedToLogin = await isShopifyAuthRedirect(page, testConfig.loginURL);
+      {{else}}
       const redirectedToLogin = await isRedirectedToLogin(page, testConfig.loginURL);
+      {{/ifFramework}}
       
       expect(redirectedToLogin).toBe(true);
       

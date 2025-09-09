@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { testConfig } from '../config/test-config.js';
 import { apiRoutes } from '../routes/api-routes.js';
+{{#ifFramework "shopify-app"}}
+import { simulateShopifyWebhook, generateShopifyTestData } from '../helpers/shopify-auth-helper.js';
+{{/ifFramework}}
 
 test.describe('API Routes - Authentication Testing', () => {
   test.beforeEach(async ({ page }) => {
@@ -114,6 +117,23 @@ test.describe('API Routes - Authentication Testing', () => {
         if (headers['x-powered-by']) {
           expect(headers['x-powered-by']).toContain('Next.js');
         }
+      }
+      {{/ifFramework}}
+      
+      {{#ifFramework "shopify-app"}}
+      // Shopify app specific checks
+      if (url.startsWith('/webhooks/')) {
+        // Test webhook with proper Shopify headers
+        const testData = generateShopifyTestData();
+        const webhookResponse = await simulateShopifyWebhook(request, `${testConfig.baseURL}${url}`, {
+          topic: url.replace('/webhooks/', '').replace('/', '/'),
+          shop: testData.shop,
+          data: url.includes('order') ? testData.order : testData.customer
+        });
+        
+        // Webhooks should either return 200 (processed) or 401 (unauthorized)
+        expect([200, 401, 403]).toContain(webhookResponse.status());
+        console.log(`🔗 Webhook ${url} responded with status ${webhookResponse.status()}`);
       }
       {{/ifFramework}}
     });

@@ -137,6 +137,11 @@ export class TemplateEngine {
       { template: 'package', output: 'package.json' },
     ];
 
+    // Add Shopify-specific helpers
+    if (framework.name === 'shopify-app') {
+      filesToGenerate.push({ template: 'shopify-auth-helper', output: 'helpers/shopify-auth-helper.js' });
+    }
+
     // Add route files
     if (routes.public?.length > 0) {
       filesToGenerate.push({ template: 'routes.public', output: 'routes/public-routes.js' });

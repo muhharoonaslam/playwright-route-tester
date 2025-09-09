@@ -30,6 +30,12 @@ export default defineConfig({
     // Next.js specific settings
     ignoreHTTPSErrors: true,
     {{/ifFramework}}
+    {{#ifFramework "shopify-app"}}
+    // Shopify app specific settings
+    ignoreHTTPSErrors: true,
+    // Handle Shopify app authentication flows
+    acceptDownloads: false,
+    {{/ifFramework}}
     {{#ifFramework "express"}}
     // Express specific settings
     extraHTTPHeaders: {
@@ -88,6 +94,16 @@ export default defineConfig({
   {{#ifFramework "react"}}
   webServer: process.env.CI ? undefined : {
     command: '{{#includeScript "start"}}npm start{{else}}npm run dev{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    cwd: '..',
+    reuseExistingServer: !process.env.CI,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+  {{/ifFramework}}
+  {{#ifFramework "shopify-app"}}
+  webServer: process.env.CI ? undefined : {
+    command: '{{#includeScript "dev"}}npm run dev{{else}}shopify app dev{{/includeScript}}',
     port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
     cwd: '..',
     reuseExistingServer: !process.env.CI,

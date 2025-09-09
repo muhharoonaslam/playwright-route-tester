@@ -13,6 +13,7 @@ import { TemplateEngine } from './core/templates/engine.js';
 import { NextjsFramework } from './core/frameworks/nextjs.js';
 import { ReactFramework } from './core/frameworks/react.js';
 import { ExpressFramework } from './core/frameworks/express.js';
+import { ShopifyFramework } from './core/frameworks/shopify.js';
 import { VersionChecker } from './core/version-checker.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +43,7 @@ const program = new Command();
 program
   .name('playwright-route-tester')
   .description('🎭 Smart Playwright test generator for route testing with authentication validation')
-  .version('2.1.1', '-v, --version', 'Output the current version')
+  .version('2.2.0', '-v, --version', 'Output the current version')
   .configureHelp({
     sortSubcommands: true,
     subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
