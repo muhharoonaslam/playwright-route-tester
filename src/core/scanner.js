@@ -470,19 +470,35 @@ export class ProjectScanner {
   }
 
   convertAppRouterPathToUrl(filePath) {
-    return '/' + filePath
-      .replace(/\/page\.(js|jsx|ts|tsx)$/, '')
-      .replace(/\(.*?\)/g, '') // Remove route groups
-      .replace(/\[\.\.\.(\w+)\]/g, '*') // Convert catch-all routes
-      .replace(/\[(\w+)\]/g, ':$1'); // Convert dynamic routes
+    // Normalize Windows path separators to forward slashes
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    let url = '/' + normalizedPath
+      .replace(/\/page\.(js|jsx|ts|tsx)$/, '') // Remove page.tsx/jsx/js
+      .replace(/\(.*?\)/g, '') // Remove route groups like (dashboard)
+      .replace(/\[\.\.\.(\w+)\]/g, '*') // Convert [...slug] to *
+      .replace(/\[(\w+)\]/g, ':$1'); // Convert [id] to :id
+    
+    // Clean up double slashes and trailing slashes
+    url = url.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+    
+    return url;
   }
 
   convertPagesRouterPathToUrl(filePath) {
-    return '/' + filePath
-      .replace(/\.(js|jsx|ts|tsx)$/, '')
-      .replace(/\/index$/, '')
-      .replace(/\[\.\.\.(\w+)\]/g, '*')
-      .replace(/\[(\w+)\]/g, ':$1');
+    // Normalize Windows path separators to forward slashes
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    let url = '/' + normalizedPath
+      .replace(/\.(js|jsx|ts|tsx)$/, '') // Remove file extensions
+      .replace(/\/index$/, '') // Remove index from path
+      .replace(/\[\.\.\.(\w+)\]/g, '*') // Convert [...slug] to *
+      .replace(/\[(\w+)\]/g, ':$1'); // Convert [id] to :id
+    
+    // Clean up double slashes and trailing slashes
+    url = url.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+    
+    return url;
   }
 
   extractReactRouterPaths(content) {

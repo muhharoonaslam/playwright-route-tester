@@ -166,15 +166,15 @@ export class NextjsFramework {
   convertAppRouterPathToUrl(filePath) {
     console.log(`Converting file path: "${filePath}"`);
     
-    // Start with the file path
-    let url = filePath;
+    // Normalize Windows backslashes to forward slashes
+    let url = filePath.replace(/\\/g, '/');
     
     // Remove the page.tsx or route.tsx file name (handle both with and without leading slash)
     url = url.replace(/^(page|route)\.(js|jsx|ts|tsx)$/, '');
     url = url.replace(/\/(page|route)\.(js|jsx|ts|tsx)$/, '');
     
     // Remove route groups like (auth), (dashboard)
-    url = url.replace(/\(.*?\)/g, '');
+    url = url.replace(/\([^)]*\)/g, '');
     
     // Convert [...slug] to * (catch-all routes)
     url = url.replace(/\[\.\.\.(\w+)\]/g, '*');
@@ -186,7 +186,7 @@ export class NextjsFramework {
     url = url.replace(/\/+/g, '/');
     
     // Handle empty string or root case first
-    if (!url || url === '') {
+    if (!url || url === '' || url === '/') {
       url = '/';
     } else {
       // Add leading slash if needed
@@ -206,13 +206,18 @@ export class NextjsFramework {
   }
 
   convertPagesRouterPathToUrl(filePath) {
-    return '/' + filePath
+    // Normalize Windows backslashes to forward slashes
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    let url = '/' + normalizedPath
       .replace(/\.(js|jsx|ts|tsx)$/, '') // Remove file extension
       .replace(/\/index$/, '') // Remove /index from the end
       .replace(/\[\.\.\.(\w+)\]/g, '*') // Convert [...slug] to *
       .replace(/\[(\w+)\]/g, ':$1') // Convert [id] to :id
       .replace(/\/+/g, '/') // Clean up multiple slashes
       .replace(/\/$/, '') || '/'; // Remove trailing slash except for root
+    
+    return url;
   }
 
   isProtectedRoute(url) {
