@@ -1,0 +1,27 @@
+import fs from 'fs-extra';
+import path from 'path';
+
+async function globalSetup() {
+  console.log('🧹 Cleaning up previous test artifacts...');
+  
+  const testResultsDir = path.join(process.cwd(), 'test-results');
+  const playwrightReportDir = path.join(process.cwd(), 'playwright-report');
+  
+  try {
+    // Clean up previous test results but keep the directory
+    if (await fs.pathExists(testResultsDir)) {
+      await fs.emptyDir(testResultsDir);
+    }
+    
+    // Clean up previous HTML reports but keep the directory  
+    if (await fs.pathExists(playwrightReportDir)) {
+      await fs.emptyDir(playwrightReportDir);
+    }
+    
+    console.log('✅ Test artifacts cleaned up');
+  } catch (error) {
+    console.warn('⚠️ Warning: Could not clean up some test artifacts:', error.message);
+  }
+}
+
+export default globalSetup;

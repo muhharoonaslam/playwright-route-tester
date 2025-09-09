@@ -40,14 +40,18 @@ export class ProjectScanner {
   }
 
   async detectFramework() {
+    console.log('🔍 Detecting project framework...');
+    
     if (!this.packageJson) {
-      this.framework = { name: 'unknown', version: null };
+      console.log('📄 No package.json found - checking for static files...');
+      this.framework = await this.detectStaticFramework();
       return;
     }
 
     const deps = { ...this.packageJson.dependencies, ...this.packageJson.devDependencies };
+    console.log(`📦 Found dependencies:`, Object.keys(deps).slice(0, 10).join(', '));
     
-    // Next.js detection
+    // Next.js detection (priority framework)
     if (deps.next) {
       this.framework = { 
         name: 'nextjs', 
@@ -55,6 +59,7 @@ export class ProjectScanner {
         hasAppRouter: await this.hasNextAppRouter(),
         hasPagesRouter: await this.hasNextPagesRouter()
       };
+      console.log(`✅ Detected Next.js ${deps.next} (App Router: ${this.framework.hasAppRouter}, Pages: ${this.framework.hasPagesRouter})`);
       return;
     }
     
@@ -62,37 +67,73 @@ export class ProjectScanner {
     if (deps['react-router-dom'] || deps['@reach/router']) {
       this.framework = { 
         name: 'react-router', 
-        version: deps['react-router-dom'] || deps['@reach/router']
+        version: deps['react-router-dom'] || deps['@reach/router'],
+        hasReactRouter: !!deps['react-router-dom'],
+        hasReachRouter: !!deps['@reach/router']
       };
+      console.log(`✅ Detected React Router ${this.framework.version}`);
       return;
     }
     
     // Vue Router detection
     if (deps['vue-router']) {
       this.framework = { name: 'vue-router', version: deps['vue-router'] };
+      console.log(`✅ Detected Vue Router ${deps['vue-router']}`);
       return;
     }
     
     // Express detection
     if (deps.express) {
       this.framework = { name: 'express', version: deps.express };
+      console.log(`✅ Detected Express ${deps.express}`);
       return;
     }
     
     // Nuxt detection
-    if (deps.nuxt || deps['@nuxt/core']) {
-      this.framework = { name: 'nuxt', version: deps.nuxt || deps['@nuxt/core'] };
+    if (deps.nuxt || deps['@nuxt/core'] || deps['@nuxt/kit']) {
+      this.framework = { name: 'nuxt', version: deps.nuxt || deps['@nuxt/core'] || deps['@nuxt/kit'] };
+      console.log(`✅ Detected Nuxt ${this.framework.version}`);
+      return;
+    }
+    
+    // Vite + React detection
+    if (deps.vite && deps.react) {
+      this.framework = { name: 'vite-react', version: deps.vite, reactVersion: deps.react };
+      console.log(`✅ Detected Vite + React project`);
+      return;
+    }
+    
+    // Create React App detection
+    if (deps['react-scripts'] || this.packageJson.scripts?.start?.includes('react-scripts')) {
+      this.framework = { name: 'create-react-app', version: deps['react-scripts'] || deps.react };
+      console.log(`✅ Detected Create React App`);
       return;
     }
     
     // Generic React/Vue detection
     if (deps.react) {
       this.framework = { name: 'react', version: deps.react };
+      console.log(`✅ Detected React ${deps.react} (generic)`);
     } else if (deps.vue) {
       this.framework = { name: 'vue', version: deps.vue };
+      console.log(`✅ Detected Vue ${deps.vue} (generic)`);
     } else {
-      this.framework = { name: 'unknown', version: null };
+      console.log('⚠️ Framework detection failed - using generic detection');
+      this.framework = await this.detectStaticFramework();
     }
+  }
+  
+  async detectStaticFramework() {
+    // Try to detect from file structure when no package.json
+    const hasIndex = await fs.pathExists(path.join(this.projectPath, 'index.html'));
+    const hasPublic = await fs.pathExists(path.join(this.projectPath, 'public'));
+    const hasSrc = await fs.pathExists(path.join(this.projectPath, 'src'));
+    
+    if (hasIndex || hasPublic || hasSrc) {
+      return { name: 'static-site', version: null, hasStaticFiles: true };
+    }
+    
+    return { name: 'unknown', version: null };
   }
 
   async hasNextAppRouter() {
@@ -257,27 +298,94 @@ export class ProjectScanner {
   }
 
   async scanGenericRoutes() {
-    // Fallback: provide common default routes
-    const commonRoutes = [
-      { url: '/', title: 'Home Page' },
-      { url: '/about', title: 'About Page' },
-      { url: '/contact', title: 'Contact Page' },
-    ];
+    console.log('⚠️ Framework not detected - performing generic file-based route scanning...');
     
-    const commonProtectedRoutes = [
-      { url: '/dashboard', title: 'Dashboard' },
-      { url: '/profile', title: 'User Profile' },
-      { url: '/settings', title: 'Settings' }
-    ];
+    // Try to find routes by scanning common file patterns
+    const routes = [];
     
-    const commonApiRoutes = [
-      { url: '/api/users', title: 'Users API', method: 'GET' },
-      { url: '/api/products', title: 'Products API', method: 'GET' }
-    ];
+    try {
+      // Scan for HTML files
+      const htmlFiles = await glob('**/*.html', { 
+        cwd: this.projectPath,
+        ignore: ['node_modules/**', 'dist/**', 'build/**', '.next/**']
+      });
+      
+      for (const file of htmlFiles) {
+        const routePath = '/' + file.replace(/\.html$/, '').replace(/\/index$/, '');
+        routes.push({
+          url: routePath === '' ? '/' : routePath,
+          title: this.generateRouteTitle(routePath || '/'),
+          file: file,
+          type: 'static'
+        });
+      }
+      
+      // Scan for common page component patterns
+      const componentFiles = await glob('**/pages/**/*.{js,jsx,ts,tsx}', {
+        cwd: this.projectPath,
+        ignore: ['node_modules/**', '**/*.test.*', '**/*.spec.*']
+      });
+      
+      for (const file of componentFiles) {
+        const routePath = '/' + file
+          .replace(/^.*\/pages\//, '')
+          .replace(/\.(js|jsx|ts|tsx)$/, '')
+          .replace(/\/index$/, '');
+        
+        routes.push({
+          url: routePath === '' ? '/' : routePath,
+          title: this.generateRouteTitle(routePath || '/'),
+          file: file,
+          type: 'component'
+        });
+      }
+      
+      // If no routes found, provide minimal sensible defaults
+      if (routes.length === 0) {
+        console.log('📝 No routes detected - adding basic home page route');
+        routes.push({ 
+          url: '/', 
+          title: 'Home Page', 
+          type: 'default',
+          note: 'Add more routes manually in the route files' 
+        });
+      }
+      
+    } catch (error) {
+      console.warn('Warning: Error during generic route scanning:', error.message);
+      // Minimal fallback
+      routes.push({ 
+        url: '/', 
+        title: 'Home Page', 
+        type: 'fallback',
+        note: 'Configure routes manually in the generated route files'
+      });
+    }
     
-    this.routes.public = commonRoutes;
-    this.routes.protected = commonProtectedRoutes;
-    this.routes.api = commonApiRoutes;
+    // Categorize the found routes
+    await this.categorizeRoutes(routes);
+    
+    // Only add API routes if we found evidence of API endpoints
+    const hasApiIndicators = await this.hasApiDirectory();
+    if (hasApiIndicators) {
+      this.routes.api.push({
+        url: '/api/health',
+        title: 'Health Check',
+        method: 'GET',
+        type: 'detected',
+        note: 'Update with your actual API endpoints'
+      });
+    }
+  }
+  
+  async hasApiDirectory() {
+    const apiPaths = ['api/', 'pages/api/', 'app/api/', 'src/api/', 'routes/api/'];
+    for (const apiPath of apiPaths) {
+      if (await fs.pathExists(path.join(this.projectPath, apiPath))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async categorizeRoutes(routes) {

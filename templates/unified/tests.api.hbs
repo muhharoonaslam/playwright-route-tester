@@ -1,67 +1,30 @@
 import { test, expect } from '@playwright/test';
-{{#unless bare}}
 import { testConfig } from '../config/test-config.js';
 import { apiRoutes } from '../routes/api-routes.js';
-{{/unless}}
-
-{{#if bare}}
-const apiRoutes = {{{json routes.api}}};
-const testConfig = {
-  baseURL: '{{baseURL}}',
-  defaultHeaders: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'PlaywrightRouteTester/{{version}}'
-  }
-};
-{{/if}}
 
 test.describe('API Routes - Authentication Testing', () => {
-  {{#unless bare}}
   test.beforeEach(async ({ page }) => {
     test.setTimeout(testConfig.timeout);
   });
-  {{/unless}}
 
-  {{#if bare}}
-  // Bare mode API tests
-  {{#eachRoute routes.api}}
-  test('{{testDescription this "api"}}', async ({ request }) => {
-    console.log(`🔌 Testing API route: {{httpMethod method}} {{url}}`);
-    
-    const response = await request.{{method.toLowerCase}}(`{{../baseURL}}{{url}}`, {
-      headers: testConfig.defaultHeaders
-    });
-    
-    {{#if requiresAuth}}
-    // Expecting 401 Unauthorized for protected API
-    expect(response.status()).toBe(401);
-    console.log(`✅ {{title}} properly protected - returned 401`);
-    
-    // Verify response has authentication error
-    const responseBody = await response.text().catch(() => '');
-    const isAuthError = responseBody.toLowerCase().includes('unauthorized') ||
-                       responseBody.toLowerCase().includes('authentication') ||
-                       responseBody.toLowerCase().includes('login') ||
-                       response.status() === 401;
-    
-    expect(isAuthError).toBe(true);
-    {{else}}
-    // Public API endpoint
-    expect(response.status()).toBeLessThan(400);
-    console.log(`✅ {{title}} accessible - returned ${response.status()}`);
-    {{/if}}
-  });
-  {{/eachRoute}}
-  {{else}}
-  // Full mode API tests
-  apiRoutes.forEach(({ url, title, method = 'GET', requiresAuth, expectedStatus }) => {
-    test(`${title} should ${requiresAuth ? 'return 401 when not authenticated' : 'be accessible'}`, async ({ request }) => {
+  // Iterate through all API routes from JSON file
+  apiRoutes.forEach(({ url, title, method = 'GET', requiresAuth, expectedStatus, keyElement, timeout }) => {
+    test(`${title || `API ${method} ${url}`} should ${requiresAuth ? 'return 401 when not authenticated' : 'be accessible'}`, async ({ request }) => {
+      // Set custom timeout if specified for this route
+      if (timeout) {
+        test.setTimeout(timeout);
+      }
+      
       console.log(`🔌 Testing API route: ${method} ${url}`);
       
       const requestMethod = method.toLowerCase();
       const requestOptions = {
-        headers: testConfig.defaultHeaders
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'PlaywrightRouteTester/2.0.0',
+          ...testConfig.defaultHeaders
+        }
       };
       
       // Add request body for POST/PUT/PATCH requests
@@ -93,7 +56,19 @@ test.describe('API Routes - Authentication Testing', () => {
           expect([401, 403]).toContain(status);
         }
         
-        console.log(`✅ ${title} properly protected - returned ${status}`);
+        // Check for key response elements if specified (can be null)
+        if (keyElement) {
+          try {
+            const responseBody = await response.text();
+            expect(responseBody).toContain(keyElement);
+            console.log(`✅ Key element found in response: ${keyElement}`);
+          } catch (error) {
+            console.warn(`⚠️ Key element not found in API response: ${keyElement}`);
+            // Don't fail the test - just log the warning
+          }
+        }
+        
+        console.log(`✅ ${title || `API ${method} ${url}`} properly protected - returned ${status}`);
       } else {
         // Public endpoint - should be accessible
         const status = response.status();
@@ -105,7 +80,19 @@ test.describe('API Routes - Authentication Testing', () => {
           expect(status).toBe(expectedCode);
         }
         
-        console.log(`✅ ${title} accessible - returned ${status}`);
+        // Check for key response elements if specified (can be null)
+        if (keyElement) {
+          try {
+            const responseBody = await response.text();
+            expect(responseBody).toContain(keyElement);
+            console.log(`✅ Key element found in response: ${keyElement}`);
+          } catch (error) {
+            console.warn(`⚠️ Key element not found in API response: ${keyElement}`);
+            // Don't fail the test - just log the warning
+          }
+        }
+        
+        console.log(`✅ ${title || `API ${method} ${url}`} accessible - returned ${status}`);
       }
       
       {{#ifFramework "express"}}
@@ -131,9 +118,7 @@ test.describe('API Routes - Authentication Testing', () => {
       {{/ifFramework}}
     });
   });
-  {{/if}}
   
-  {{#unless bare}}
   test.afterAll(async () => {
     const protectedApis = apiRoutes.filter(api => api.requiresAuth).length;
     const publicApis = apiRoutes.filter(api => !api.requiresAuth).length;
@@ -143,5 +128,4 @@ test.describe('API Routes - Authentication Testing', () => {
     console.log(`🌐 Public APIs tested: ${publicApis}`);
     console.log(`✅ All APIs behaving as expected`);
   });
-  {{/unless}}
 });

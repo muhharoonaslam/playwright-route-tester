@@ -24,7 +24,7 @@ export default defineConfig({
   
   use: {
     baseURL: '{{baseURL}}',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     {{#ifFramework "nextjs"}}
     // Next.js specific settings
@@ -89,8 +89,9 @@ export default defineConfig({
   },
   {{/unless}}
   
-  {{#ifFeature "jenkins"}}
-  // Jenkins specific configuration
-  outputDir: '../test-results',
-  {{/ifFeature}}
+  // Output configuration
+  outputDir: 'test-results',
+  
+  // Cleanup previous test results
+  globalSetup: require.resolve('./playwright.global-setup.js'),
 });
