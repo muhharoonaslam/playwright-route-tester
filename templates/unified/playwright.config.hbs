@@ -65,29 +65,36 @@ export default defineConfig({
     {{/ifFeature}}
   ],
 
-  {{#unless bare}}
+  {{#ifFramework "nextjs"}}
   webServer: process.env.CI ? undefined : {
-    {{#ifFramework "nextjs"}}
     command: '{{#includeScript "dev"}}npm run dev{{else}}npx next dev{{/includeScript}}',
     port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
-    {{/ifFramework}}
-    {{#ifFramework "express"}}
-    command: '{{#includeScript "start"}}npm start{{else}}node server.js{{/includeScript}}',
-    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
-    {{/ifFramework}}
-    {{#ifFramework "react"}}
-    command: '{{#includeScript "start"}}npm start{{else}}npm run dev{{/includeScript}}',
-    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
-    {{/ifFramework}}
-    {{#unless framework}}
-    command: 'echo "Configure your dev server command here"',
-    port: 3000,
-    {{/unless}}
+    cwd: '..',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',
   },
-  {{/unless}}
+  {{/ifFramework}}
+  {{#ifFramework "express"}}
+  webServer: process.env.CI ? undefined : {
+    command: '{{#includeScript "start"}}npm start{{else}}node server.js{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    cwd: '..',
+    reuseExistingServer: !process.env.CI,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+  {{/ifFramework}}
+  {{#ifFramework "react"}}
+  webServer: process.env.CI ? undefined : {
+    command: '{{#includeScript "start"}}npm start{{else}}npm run dev{{/includeScript}}',
+    port: {{#if framework.port}}{{framework.port}}{{else}}3000{{/if}},
+    cwd: '..',
+    reuseExistingServer: !process.env.CI,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+  {{/ifFramework}}
   
   // Output configuration
   outputDir: 'test-results',
