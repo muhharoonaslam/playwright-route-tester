@@ -149,153 +149,55 @@ export class ProjectScanner {
     
     let frameworkInstance = null;
     
-    switch (this.framework.name) {
-      case 'nextjs':
-        frameworkInstance = new NextjsFramework(this.projectPath);
-        await frameworkInstance.detect();
-        this.routes = await frameworkInstance.scanRoutes();
-        break;
-        
-      case 'react':
-      case 'react-router':
-        frameworkInstance = new ReactFramework(this.projectPath);
-        frameworkInstance.routerType = this.framework.name === 'react-router' ? 'react-router-dom' : null;
-        await frameworkInstance.detect();
-        this.routes = await frameworkInstance.scanRoutes();
-        break;
-        
-      case 'express':
-        frameworkInstance = new ExpressFramework(this.projectPath);
-        await frameworkInstance.detect();
-        this.routes = await frameworkInstance.scanRoutes();
-        break;
-        
-      case 'vue-router':
-      case 'nuxt':
-        // For now, use generic scanning until Vue framework is implemented
-        await this.scanGenericRoutes();
-        break;
-        
-      default:
-        await this.scanGenericRoutes();
-        break;
+    try {
+      switch (this.framework.name) {
+        case 'nextjs':
+          console.log('🔍 Using NextJS framework scanner...');
+          frameworkInstance = new NextjsFramework(this.projectPath);
+          await frameworkInstance.detect();
+          this.routes = await frameworkInstance.scanRoutes();
+          console.log('✅ NextJS framework scanning completed');
+          break;
+          
+        case 'react':
+        case 'react-router':
+          console.log('🔍 Using React framework scanner...');
+          frameworkInstance = new ReactFramework(this.projectPath);
+          frameworkInstance.routerType = this.framework.name === 'react-router' ? 'react-router-dom' : null;
+          await frameworkInstance.detect();
+          this.routes = await frameworkInstance.scanRoutes();
+          break;
+          
+        case 'express':
+          console.log('🔍 Using Express framework scanner...');
+          frameworkInstance = new ExpressFramework(this.projectPath);
+          await frameworkInstance.detect();
+          this.routes = await frameworkInstance.scanRoutes();
+          break;
+          
+        case 'vue-router':
+        case 'nuxt':
+          // For now, use generic scanning until Vue framework is implemented
+          console.log('🔍 Using generic scanning for Vue/Nuxt...');
+          await this.scanGenericRoutes();
+          break;
+          
+        default:
+          console.log('🔍 Using generic scanning for unknown framework...');
+          await this.scanGenericRoutes();
+          break;
+      }
+    } catch (error) {
+      console.error('❌ Framework-specific scanning failed:', error.message);
+      console.log('🔄 Falling back to generic scanning...');
+      await this.scanGenericRoutes();
     }
     
     console.log(`✅ Found ${this.routes.public.length} public, ${this.routes.protected.length} protected, ${this.routes.api.length} API routes`);
   }
 
-  async scanNextjsRoutes() {
-    const routes = [];
-    
-    // App Router (Next.js 13+)
-    if (this.framework.hasAppRouter) {
-      const appDir = path.join(this.projectPath, 'app');
-      const pageFiles = await glob('**/page.{js,jsx,ts,tsx}', { cwd: appDir });
-      
-      for (const file of pageFiles) {
-        const routePath = this.convertAppRouterPathToUrl(file);
-        const isApiRoute = file.includes('/api/');
-        
-        if (isApiRoute) {
-          this.routes.api.push({
-            url: routePath,
-            title: this.generateRouteTitle(routePath),
-            method: 'GET',
-            file: path.join(appDir, file)
-          });
-        } else {
-          routes.push({
-            url: routePath,
-            title: this.generateRouteTitle(routePath),
-            file: path.join(appDir, file)
-          });
-        }
-      }
-    }
-    
-    // Pages Router (Classic Next.js)
-    if (this.framework.hasPagesRouter) {
-      const pagesDir = path.join(this.projectPath, 'pages');
-      if (await fs.pathExists(pagesDir)) {
-        const pageFiles = await glob('**/*.{js,jsx,ts,tsx}', { 
-          cwd: pagesDir,
-          ignore: ['_app.*', '_document.*', '_error.*', '404.*', '500.*']
-        });
-        
-        for (const file of pageFiles) {
-          const routePath = this.convertPagesRouterPathToUrl(file);
-          const isApiRoute = file.startsWith('api/');
-          
-          if (isApiRoute) {
-            this.routes.api.push({
-              url: routePath,
-              title: this.generateRouteTitle(routePath),
-              method: 'GET',
-              file: path.join(pagesDir, file)
-            });
-          } else {
-            routes.push({
-              url: routePath,
-              title: this.generateRouteTitle(routePath),
-              file: path.join(pagesDir, file)
-            });
-          }
-        }
-      }
-    }
-    
-    // Categorize routes as public or protected
-    await this.categorizeRoutes(routes);
-  }
 
-  async scanReactRouterRoutes() {
-    // Scan for React Router routes in common patterns
-    const routeFiles = await glob('**/*.{js,jsx,ts,tsx}', {
-      cwd: path.join(this.projectPath, 'src'),
-      ignore: ['**/*.test.*', '**/*.spec.*']
-    });
-    
-    const routes = [];
-    
-    for (const file of routeFiles) {
-      const content = await fs.readFile(path.join(this.projectPath, 'src', file), 'utf8');
-      const routePaths = this.extractReactRouterPaths(content);
-      
-      for (const routePath of routePaths) {
-        routes.push({
-          url: routePath,
-          title: this.generateRouteTitle(routePath),
-          file: path.join('src', file)
-        });
-      }
-    }
-    
-    await this.categorizeRoutes(routes);
-  }
 
-  async scanExpressRoutes() {
-    const routeFiles = await glob('**/*.{js,ts}', {
-      cwd: this.projectPath,
-      ignore: ['node_modules/**', 'dist/**', '**/*.test.*', '**/*.spec.*']
-    });
-    
-    const routes = [];
-    
-    for (const file of routeFiles) {
-      const content = await fs.readFile(path.join(this.projectPath, file), 'utf8');
-      const routePaths = this.extractExpressRoutes(content);
-      
-      for (const route of routePaths) {
-        if (route.url.startsWith('/api')) {
-          this.routes.api.push(route);
-        } else {
-          routes.push(route);
-        }
-      }
-    }
-    
-    await this.categorizeRoutes(routes);
-  }
 
   async scanGenericRoutes() {
     console.log('⚠️ Framework not detected - performing generic file-based route scanning...');
