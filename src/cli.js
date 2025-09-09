@@ -42,7 +42,7 @@ const program = new Command();
 program
   .name('playwright-route-tester')
   .description('🎭 Smart Playwright test generator for route testing with authentication validation')
-  .version('2.0.3', '-v, --version', 'Output the current version')
+  .version('2.0.4', '-v, --version', 'Output the current version')
   .configureHelp({
     sortSubcommands: true,
     subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
