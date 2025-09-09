@@ -131,6 +131,7 @@ export class TemplateEngine {
     // Generate all files
     const filesToGenerate = [
       { template: 'playwright.config', output: 'playwright.config.js' },
+      { template: 'playwright.global-setup', output: 'playwright.global-setup.js' },
       { template: 'test-config', output: 'config/test-config.js' },
       { template: 'redirect-helper', output: 'helpers/redirect-helper.js' },
       { template: 'package', output: 'package.json' },
