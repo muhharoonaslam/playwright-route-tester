@@ -1,6 +1,6 @@
 {
   "name": "playwright-route-tester",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "Intelligent CLI tool that automatically generates Playwright tests with smart framework detection, zero-configuration setup, and advanced route testing",
   "type": "module",
   "main": "dist/index.js",
