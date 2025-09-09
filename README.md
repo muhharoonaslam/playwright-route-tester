@@ -60,6 +60,18 @@ npx playwright-route-tester setup
 npm install playwright-route-tester --save-dev
 ```
 
+### 💡 Lightweight dev install
+
+- **Why**: To keep this repo's dev install small, `@playwright/test` is not included as a dev dependency. It's declared as a peer dependency instead.
+- **When needed**: If you want to run Playwright locally for development or execute generated tests, install it on demand:
+
+```bash
+npm i -D @playwright/test
+npx playwright install
+```
+
+- **Consumers**: Users of this package already satisfy `@playwright/test` via peer dependency in their test projects.
+
 ## 🎬 Smart Setup Options
 
 ### 🧠 Option 1: Smart Setup (Recommended)
